@@ -1,0 +1,26 @@
+<%- include('partials/head', {title: 'تسجيل الدخول'}) %>
+<div class="login-box text-center">
+  <h3 class="page-title mb-1">لمسة أزيائي</h3>
+  <p class="text-muted mb-4">نظام إدارة الإنتاج</p>
+  <% if (error) { %>
+    <div class="alert alert-danger py-2"><%= error %></div>
+  <% } %>
+  <form method="POST" action="/login" class="text-start">
+    <div class="mb-3">
+      <label class="form-label">اسم المستخدم</label>
+      <input class="form-control" name="username" required autofocus>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">كلمة المرور</label>
+      <input class="form-control" type="password" name="password" required>
+    </div>
+    <button class="btn btn-brand w-100">دخول</button>
+  </form>
+  <hr>
+  <div class="text-muted small text-start">
+    حسابات تجريبية:<br>
+    admin/admin123 · production/prod123 · receiving/recv123<br>
+    packaging/pack123 · accountant/acc123
+  </div>
+</div>
+<%- include('partials/foot') %>

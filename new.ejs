@@ -1,0 +1,67 @@
+<%- include('../partials/head', {title: 'طلب جديد'}) %>
+<h4 class="page-title">إنشاء طلب جديد يدوياً</h4>
+<p class="text-muted">في حال ربط سلة عبر Webhook، ستصل الطلبات تلقائياً. هذا النموذج للإدخال اليدوي أو الطلبات الهاتفية.</p>
+
+<form method="POST" action="/orders/new" class="bg-white p-4 rounded shadow-sm">
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label class="form-label">اسم العميلة</label>
+      <input class="form-control" name="customer_name">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">رقم الجوال</label>
+      <input class="form-control" name="customer_phone">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">المدينة</label>
+      <input class="form-control" name="city">
+    </div>
+  </div>
+
+  <h6 class="mt-4 mb-2">القطع المطلوبة</h6>
+  <div id="items-wrap">
+    <div class="item-row row g-2 mb-2 align-items-end border-bottom pb-2">
+      <div class="col-md-3">
+        <label class="form-label small">المنتج</label>
+        <select class="form-select" name="product_id" required>
+          <option value="">اختر منتج</option>
+          <% products.forEach(function(p){ %>
+            <option value="<%= p.id %>"><%= p.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">المقاس</label>
+        <input class="form-control" name="size">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">اللون</label>
+        <input class="form-control" name="color">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small">اسم التطريز</label>
+        <input class="form-control" name="embroidery_name">
+      </div>
+      <div class="col-md-1">
+        <label class="form-label small">الكمية</label>
+        <input class="form-control" name="qty" type="number" value="1" min="1">
+      </div>
+      <div class="col-md-1">
+        <label class="form-label small">ملاحظات</label>
+        <input class="form-control" name="item_notes">
+      </div>
+      <div class="col-md-1">
+        <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItemRow(this)">×</button>
+      </div>
+    </div>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="addItemRow()">+ إضافة قطعة أخرى</button>
+
+  <div class="mb-3">
+    <label class="form-label">ملاحظات عامة على الطلب</label>
+    <textarea class="form-control" name="notes" rows="2"></textarea>
+  </div>
+
+  <button class="btn btn-brand">حفظ الطلب</button>
+</form>
+<%- include('../partials/foot') %>

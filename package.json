@@ -1,0 +1,17 @@
+{
+  "name": "lamsa-fashion-erp",
+  "version": "1.0.0",
+  "description": "نظام لمسة أزيائي لإدارة الإنتاج - Lamsa Fashion Production ERP",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "ejs": "^3.1.10"
+  }
+}

@@ -1,0 +1,29 @@
+<%- include('../partials/head', {title: 'مسح الباركود'}) %>
+<h4 class="page-title">مسح الباركود / تحديث المرحلة</h4>
+
+<% if (result) { %>
+  <div class="alert alert-success"><%= result.message %> — الحالة الحالية: <strong><%= result.order.status %></strong></div>
+<% } %>
+<% if (error) { %>
+  <div class="alert alert-danger"><%= error %></div>
+<% } %>
+
+<div class="bg-white rounded p-4 shadow-sm" style="max-width:500px">
+  <form method="POST" action="/barcode/scan">
+    <div class="mb-3">
+      <label class="form-label">امسح أو أدخل الباركود / رقم الطلب</label>
+      <input class="form-control form-control-lg" name="code" autofocus required placeholder="مثال: LMS-1006">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">نوع الحدث</label>
+      <select class="form-select" name="event" required>
+        <option value="out_workshop">🚚 خروج للمشغل</option>
+        <option value="in_workshop">📥 دخول من المشغل</option>
+        <option value="in_embroiderer">🧵 دخول المطرز</option>
+        <option value="ready_pack">📦 جاهز للتغليف</option>
+      </select>
+    </div>
+    <button class="btn btn-brand w-100">تسجيل</button>
+  </form>
+</div>
+<%- include('../partials/foot') %>

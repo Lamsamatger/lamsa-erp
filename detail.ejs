@@ -1,0 +1,54 @@
+<%- include('../partials/head', {title: workshop.name}) %>
+<h4 class="page-title"><%= workshop.name %></h4>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-4"><div class="card-stat"><div class="num"><%= totalDue.toFixed(2) %></div><div class="lbl">إجمالي المستحق (ر.س)</div></div></div>
+  <div class="col-md-4"><div class="card-stat" style="border-color:#198754"><div class="num text-success"><%= totalPaid.toFixed(2) %></div><div class="lbl">المدفوع</div></div></div>
+  <div class="col-md-4"><div class="card-stat" style="border-color:#dc3545"><div class="num text-danger"><%= remaining.toFixed(2) %></div><div class="lbl">المتبقي</div></div></div>
+</div>
+
+<div class="bg-white rounded p-3 shadow-sm mb-3">
+  <h6>سجل المهام</h6>
+  <table class="table table-sm">
+    <thead><tr><th>رقم الطلب</th><th>مُسلّم</th><th>مُستلم</th><th>تاريخ التسليم</th><th>تاريخ الاستلام</th><th>الحالة</th></tr></thead>
+    <tbody>
+    <% jobs.forEach(function(j){ %>
+      <tr>
+        <td><%= j.order_number %></td><td><%= j.delivered_qty %></td><td><%= j.received_qty %></td>
+        <td><%= j.delivered_at ? new Date(j.delivered_at).toLocaleDateString('ar-SA') : '—' %></td>
+        <td><%= j.received_at ? new Date(j.received_at).toLocaleDateString('ar-SA') : '—' %></td>
+        <td><%= j.status %></td>
+      </tr>
+    <% }) %>
+    <% if (!jobs.length) { %><tr><td colspan="6" class="text-center text-muted py-3">لا توجد مهام بعد</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="bg-white rounded p-3 shadow-sm">
+      <h6>تسجيل دفعة</h6>
+      <form method="POST" action="/workshops/<%= workshop.id %>/payment">
+        <input class="form-control mb-2" type="number" step="0.01" name="amount" placeholder="المبلغ" required>
+        <input class="form-control mb-2" name="notes" placeholder="ملاحظات">
+        <button class="btn btn-brand">تسجيل</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="bg-white rounded p-3 shadow-sm">
+      <h6>سجل الدفعات</h6>
+      <ul class="list-unstyled mb-0">
+      <% payments.forEach(function(p){ %>
+        <li class="border-bottom py-1 d-flex justify-content-between">
+          <span><%= new Date(p.date).toLocaleDateString('ar-SA') %> <%= p.notes ? '— '+p.notes : '' %></span>
+          <strong><%= p.amount.toFixed(2) %> ر.س</strong>
+        </li>
+      <% }) %>
+      <% if (!payments.length) { %><li class="text-muted">لا توجد دفعات</li><% } %>
+      </ul>
+    </div>
+  </div>
+</div>
+<%- include('../partials/foot') %>
