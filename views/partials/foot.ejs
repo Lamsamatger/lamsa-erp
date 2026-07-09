@@ -1,7 +1,17 @@
   </main>
 <% if (user) { %>
-</div>
+</div><!-- app-wrap -->
+
+<!-- Mobile bottom navigation -->
+<nav class="bottom-nav d-lg-none">
+  <a href="/"        class="bottom-nav-item"><span class="bnav-icon">📊</span><span>الرئيسية</span></a>
+  <a href="/orders"  class="bottom-nav-item"><span class="bnav-icon">📦</span><span>الطلبات</span></a>
+  <a href="/search"  class="bottom-nav-item bottom-nav-scan"><span class="bnav-icon">🔎</span><span>بحث</span></a>
+  <a href="/prep"    class="bottom-nav-item"><span class="bnav-icon">🗂️</span><span>تجهيز</span></a>
+  <a href="/barcode" class="bottom-nav-item"><span class="bnav-icon">📷</span><span>مسح</span></a>
+</nav>
 <% } %>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/public/js/app.js"></script>
 </body>

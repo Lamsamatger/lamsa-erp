@@ -1,0 +1,62 @@
+<%- include('partials/head', {title: 'بحث طلب'}) %>
+
+<h4 class="page-title">🔎 بحث عن طلب</h4>
+
+<!-- Search input -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <div class="input-group mb-2">
+    <input type="text" id="search-input" class="form-control form-control-lg"
+      placeholder="رقم الطلب أو رقم سلة أو الباركود"
+      oninput="handleSearchInput(this.value)"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch(this.value)}"
+      dir="ltr" inputmode="text" autocomplete="off">
+    <button class="btn btn-brand px-3" onclick="doSearch(document.getElementById('search-input').value)">بحث</button>
+  </div>
+  <p class="text-muted small mb-2">مثال: LMS-1007 أو رقم سلة أو LMS-1007-1</p>
+  <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-2"
+    id="cam-btn" onclick="toggleCam()">
+    <span>📷</span> <span>مسح بالكاميرا</span>
+  </button>
+</div>
+
+<!-- Camera scanner -->
+<div id="scanner-wrap" class="mb-3" style="display:none">
+  <div class="bg-white rounded-3 shadow-sm p-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h6 class="mb-0 fw-bold">الكاميرا</h6>
+      <button class="btn btn-sm btn-outline-danger" onclick="closeCam()">✕ إغلاق</button>
+    </div>
+    <div id="reader"></div>
+    <p class="text-muted small mt-2 mb-0 text-center">وجّه الكاميرا نحو الباركود أو رقم الطلب</p>
+  </div>
+</div>
+
+<!-- Results -->
+<div id="search-result"></div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let _camOpen = false;
+
+function toggleCam() {
+  if (_camOpen) { closeCam(); return; }
+  _camOpen = true;
+  document.getElementById('scanner-wrap').style.display = 'block';
+  document.getElementById('cam-btn').innerHTML = '<span>✕</span> <span>إغلاق الكاميرا</span>';
+  startCameraScanner('reader', function(code) {
+    closeCam();
+    const input = document.getElementById('search-input');
+    input.value = code;
+    doSearch(code);
+  });
+}
+
+function closeCam() {
+  _camOpen = false;
+  stopCameraScanner();
+  document.getElementById('scanner-wrap').style.display = 'none';
+  document.getElementById('cam-btn').innerHTML = '<span>📷</span> <span>مسح بالكاميرا</span>';
+}
+</script>
+
+<%- include('partials/foot') %>

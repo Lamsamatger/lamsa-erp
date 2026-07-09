@@ -256,8 +256,32 @@ app.post('/prep/print', requireAuth, requireSection('prep'), (req, res) => {
   let ids = req.body.order_ids;
   if (!ids) ids = [];
   if (!Array.isArray(ids)) ids = [ids];
-  const orders = db.orders.filter(o => ids.includes(o.id));
-  res.render('orders/card_print', { orders });
+  const orders = db.orders
+    .filter(o => ids.includes(o.id))
+    .sort((a, b) => a.order_number.localeCompare(b.order_number))
+    .map(order => ({
+      ...order,
+      items: order.items.map(it => {
+        const product = db.products.find(p => p.id === it.product_id);
+        return { ...it, image_url: product ? product.image_url : '' };
+      })
+    }));
+  res.render('prep/print_cards', { orders, STATUS_COLORS });
+});
+
+app.get('/prep/print-all', requireAuth, requireSection('prep'), (req, res) => {
+  const db = load();
+  const orders = db.orders
+    .filter(o => !['تم التنفيذ', 'ملغي'].includes(o.status))
+    .sort((a, b) => a.order_number.localeCompare(b.order_number))
+    .map(order => ({
+      ...order,
+      items: order.items.map(it => {
+        const product = db.products.find(p => p.id === it.product_id);
+        return { ...it, image_url: product ? product.image_url : '' };
+      })
+    }));
+  res.render('prep/print_cards', { orders, STATUS_COLORS });
 });
 
 // ---------- BARCODE SCANNING ----------
@@ -663,6 +687,64 @@ app.get('/reports', requireAuth, requireSection('dashboard'), (req, res) => {
   const daily = Object.entries(dailyMap).sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 14);
 
   res.render('reports', { byWorkshop, daily, totalOrders: db.orders.length });
+});
+
+// ---------- ORDER SEARCH ----------
+app.get('/search', requireAuth, (req, res) => {
+  res.render('search', {});
+});
+
+app.get('/api/orders/lookup', requireAuth, (req, res) => {
+  const db = load();
+  const q = (req.query.q || '').trim();
+  if (!q) return res.json({ found: false, error: 'أدخل رقم الطلب أو الباركود' });
+
+  const qUpper = q.toUpperCase();
+
+  // Exact match: order_number, salla_order_id, item barcode
+  let order = db.orders.find(o =>
+    (o.order_number || '').toUpperCase() === qUpper ||
+    String(o.salla_order_id || '') === q ||
+    o.items.some(it => it.barcode === q)
+  );
+
+  // Fallback: partial match
+  if (!order) {
+    order = db.orders.find(o =>
+      (o.order_number || '').toUpperCase().includes(qUpper) ||
+      String(o.salla_order_id || '').includes(q)
+    );
+  }
+
+  if (!order) return res.json({ found: false, error: 'لم يتم العثور على طلب بهذا الرقم أو الباركود' });
+
+  const items = order.items.map(it => {
+    const product = db.products.find(p => p.id === it.product_id);
+    return {
+      id: it.id,
+      product_name: it.product_name,
+      size: it.size || '',
+      color: it.color || '',
+      embroidery_name: it.embroidery_name || '',
+      qty: it.qty,
+      barcode: it.barcode,
+      stage: it.stage || '',
+      notes: it.notes || '',
+      image_url: product ? (product.image_url || '') : '',
+      is_matched: it.barcode === q
+    };
+  });
+
+  res.json({
+    found: true,
+    order: {
+      id: order.id,
+      order_number: order.order_number,
+      status: order.status,
+      created_at: order.created_at,
+      items
+    }
+  });
 });
 
 app.use((req, res) => {

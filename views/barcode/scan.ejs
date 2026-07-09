@@ -1,29 +1,78 @@
 <%- include('../partials/head', {title: 'مسح الباركود'}) %>
-<h4 class="page-title">مسح الباركود / تحديث المرحلة</h4>
+
+<h4 class="page-title">📷 مسح الباركود / تحديث المرحلة</h4>
 
 <% if (result) { %>
-  <div class="alert alert-success"><%= result.message %> — الحالة الحالية: <strong><%= result.order.status %></strong></div>
+  <div class="alert alert-success">
+    ✅ <%= result.message %> — الحالة الحالية: <strong><%= result.order.status %></strong>
+    <div class="mt-2">
+      <a href="/orders/<%= result.order.id %>" class="btn btn-sm btn-outline-success">فتح الطلب</a>
+      <a href="/search?q=<%= encodeURIComponent(result.order.order_number) %>" class="btn btn-sm btn-outline-secondary me-1">تفاصيل</a>
+    </div>
+  </div>
 <% } %>
 <% if (error) { %>
-  <div class="alert alert-danger"><%= error %></div>
+  <div class="alert alert-danger">⚠️ <%= error %></div>
 <% } %>
 
-<div class="bg-white rounded p-4 shadow-sm" style="max-width:500px">
-  <form method="POST" action="/barcode/scan">
+<!-- Camera scanner -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-bold">الكاميرا</h6>
+    <button class="btn btn-sm btn-outline-secondary" id="cam-toggle-btn" onclick="toggleBarcodeCam()">📷 فتح الكاميرا</button>
+  </div>
+  <div id="scanner-wrap" style="display:none">
+    <div id="reader" class="mb-2"></div>
+    <p class="text-muted small text-center mb-0">وجّه الكاميرا نحو الباركود</p>
+  </div>
+</div>
+
+<!-- Scan form -->
+<div class="bg-white rounded-3 p-4 shadow-sm" style="max-width:520px">
+  <form method="POST" action="/barcode/scan" id="scan-form">
     <div class="mb-3">
-      <label class="form-label">امسح أو أدخل الباركود / رقم الطلب</label>
-      <input class="form-control form-control-lg" name="code" autofocus required placeholder="مثال: LMS-1006">
+      <label class="form-label fw-bold">الباركود / رقم الطلب</label>
+      <input class="form-control form-control-lg" name="code" id="barcode-input"
+        autofocus required placeholder="مثال: LMS-1007" dir="ltr" autocomplete="off">
     </div>
     <div class="mb-3">
-      <label class="form-label">نوع الحدث</label>
-      <select class="form-select" name="event" required>
+      <label class="form-label fw-bold">نوع الحدث</label>
+      <select class="form-select form-select-lg" name="event" required id="event-select">
         <option value="out_workshop">🚚 خروج للمشغل</option>
         <option value="in_workshop">📥 دخول من المشغل</option>
         <option value="in_embroiderer">🧵 دخول المطرز</option>
         <option value="ready_pack">📦 جاهز للتغليف</option>
       </select>
     </div>
-    <button class="btn btn-brand w-100">تسجيل</button>
+    <button class="btn btn-brand w-100" type="submit" style="font-size:1.1rem; padding:12px;">تسجيل الحدث</button>
   </form>
 </div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let _camOpen = false;
+
+function toggleBarcodeCam() {
+  if (_camOpen) { closeBarcodeCam(); return; }
+  _camOpen = true;
+  document.getElementById('scanner-wrap').style.display = 'block';
+  document.getElementById('cam-toggle-btn').textContent = '✕ إغلاق الكاميرا';
+
+  startCameraScanner('reader', function(code) {
+    closeBarcodeCam();
+    const input = document.getElementById('barcode-input');
+    input.value = code;
+    // Auto-submit after short delay so user can see the value
+    setTimeout(() => document.getElementById('scan-form').submit(), 600);
+  });
+}
+
+function closeBarcodeCam() {
+  _camOpen = false;
+  stopCameraScanner();
+  document.getElementById('scanner-wrap').style.display = 'none';
+  document.getElementById('cam-toggle-btn').textContent = '📷 فتح الكاميرا';
+}
+</script>
+
 <%- include('../partials/foot') %>

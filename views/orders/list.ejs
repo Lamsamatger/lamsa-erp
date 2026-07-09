@@ -1,13 +1,15 @@
 <%- include('../partials/head', {title: 'الطلبات'}) %>
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h4 class="page-title mb-0">الطلبات</h4>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="page-title mb-0">📦 الطلبات</h4>
   <a href="/orders/new" class="btn btn-brand">+ طلب جديد</a>
 </div>
 
-<form method="GET" action="/orders" class="bg-white rounded p-3 shadow-sm mb-3">
+<!-- Filters -->
+<form method="GET" action="/orders" class="bg-white rounded-3 p-3 shadow-sm mb-3">
   <div class="row g-2 align-items-end">
-    <div class="col-md-3">
-      <label class="form-label small">الحالة</label>
+    <div class="col-6 col-md-3">
+      <label class="form-label small fw-bold mb-1">الحالة</label>
       <select class="form-select form-select-sm" name="status">
         <option value="">الكل</option>
         <% ORDER_STATUSES.forEach(function(s){ %>
@@ -15,41 +17,83 @@
         <% }) %>
       </select>
     </div>
-    <div class="col-md-3">
-      <label class="form-label small">المدينة</label>
-      <input class="form-control form-control-sm" name="city" value="<%= filters.city||'' %>" placeholder="ابحث بالمدينة">
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-bold mb-1">المدينة</label>
+      <input class="form-control form-control-sm" name="city" value="<%= filters.city||'' %>" placeholder="المدينة">
     </div>
-    <div class="col-md-4">
-      <label class="form-label small">بحث (رقم طلب / عميل / جوال)</label>
-      <input class="form-control form-control-sm" name="q" value="<%= filters.q||'' %>" placeholder="بحث...">
+    <div class="col-12 col-md-5">
+      <label class="form-label small fw-bold mb-1">بحث</label>
+      <input class="form-control form-control-sm" name="q" value="<%= filters.q||'' %>" placeholder="رقم طلب / جوال / اسم عميل" dir="auto">
     </div>
-    <div class="col-md-2">
-      <button class="btn btn-sm btn-outline-secondary w-100">تصفية</button>
+    <div class="col-12 col-md-2 d-flex gap-2">
+      <button class="btn btn-sm btn-brand flex-grow-1">تصفية</button>
+      <a href="/orders" class="btn btn-sm btn-outline-secondary">مسح</a>
     </div>
   </div>
 </form>
 
-<div class="table-responsive">
-  <table class="table table-sm table-hover bg-white rounded shadow-sm">
-    <thead>
-      <tr><th>رقم الطلب</th><th>العميل</th><th>الجوال</th><th>المدينة</th><th>الحالة</th><th>التاريخ</th><th></th></tr>
+<p class="text-muted small mb-2"><%= orders.length %> طلب</p>
+
+<!-- Desktop table -->
+<div class="table-responsive bg-white rounded-3 shadow-sm order-table-desktop">
+  <table class="table table-sm table-hover mb-0">
+    <thead class="table-light">
+      <tr>
+        <th>رقم الطلب</th>
+        <th>المدينة</th>
+        <th>الحالة</th>
+        <th>القطع</th>
+        <th>التاريخ</th>
+        <th></th>
+      </tr>
     </thead>
     <tbody>
     <% orders.forEach(function(o){ %>
       <tr class="<%= o.late ? 'late-row' : '' %>">
         <td><strong><%= o.order_number %></strong></td>
-        <td><%= o.customer_name || '—' %></td>
-        <td><%= o.customer_phone || '—' %></td>
         <td><%= o.city || '—' %></td>
-        <td><span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span></td>
-        <td><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></td>
+        <td>
+          <span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span>
+          <% if (o.late) { %><span class="badge bg-danger ms-1">متأخر</span><% } %>
+        </td>
+        <td class="text-muted small"><%= o.items ? o.items.length : '—' %> قطع</td>
+        <td class="text-muted small"><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></td>
         <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a></td>
       </tr>
     <% }) %>
     <% if (!orders.length) { %>
-      <tr><td colspan="7" class="text-center text-muted py-4">لا توجد طلبات</td></tr>
+      <tr><td colspan="6" class="text-center text-muted py-4">لا توجد طلبات</td></tr>
     <% } %>
     </tbody>
   </table>
 </div>
+
+<!-- Mobile cards -->
+<div class="order-mobile-list">
+  <% orders.forEach(function(o){ %>
+  <div class="bg-white rounded-3 shadow-sm p-3 mb-2 <%= o.late ? 'border border-warning' : '' %>">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <strong class="fs-6"><%= o.order_number %></strong>
+      <span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span>
+    </div>
+    <div class="text-muted small mb-2 d-flex gap-3 flex-wrap">
+      <% if (o.city) { %><span>📍 <%= o.city %></span><% } %>
+      <span>📅 <%= new Date(o.created_at).toLocaleDateString('ar-SA') %></span>
+      <% if (o.late) { %><span class="text-danger fw-bold">⚠️ متأخر</span><% } %>
+    </div>
+    <div class="d-flex gap-2 flex-wrap mb-2">
+      <% (o.items||[]).forEach(function(it){ %>
+        <span class="badge bg-light text-dark border" style="font-size:.72rem;"><%= it.product_name %> · <%= it.size||'—' %></span>
+      <% }) %>
+    </div>
+    <div class="d-flex justify-content-end gap-2">
+      <a href="/orders/<%= o.id %>" class="btn btn-sm btn-brand flex-grow-1 text-center">فتح الطلب</a>
+    </div>
+  </div>
+  <% }) %>
+  <% if (!orders.length) { %>
+    <div class="text-center text-muted py-4">لا توجد طلبات</div>
+  <% } %>
+</div>
+
 <%- include('../partials/foot') %>
