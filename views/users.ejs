@@ -1,0 +1,38 @@
+<%- include('partials/head', {title: 'المستخدمون'}) %>
+<h4 class="page-title">المستخدمون</h4>
+
+<div class="bg-white rounded p-3 shadow-sm mb-3">
+  <table class="table table-sm">
+    <thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>الصلاحية</th><th></th></tr></thead>
+    <tbody>
+    <% users.forEach(function(u){ %>
+      <tr>
+        <td><%= u.name %></td><td><%= u.username %></td><td><%= ROLES[u.role] %></td>
+        <td>
+          <form method="POST" action="/users/<%= u.id %>/delete" onsubmit="return confirm('حذف المستخدم؟')">
+            <button class="btn btn-sm btn-outline-danger">حذف</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<div class="bg-white rounded p-3 shadow-sm" style="max-width:500px">
+  <h6>إضافة مستخدم جديد</h6>
+  <form method="POST" action="/users/new">
+    <input class="form-control mb-2" name="name" placeholder="الاسم الكامل" required>
+    <input class="form-control mb-2" name="username" placeholder="اسم المستخدم" required>
+    <input class="form-control mb-2" name="password" type="password" placeholder="كلمة المرور" required>
+    <select class="form-select mb-2" name="role" required>
+      <option value="admin">المدير العام</option>
+      <option value="production">موظف الإنتاج</option>
+      <option value="receiving">موظف الاستلام والتسليم</option>
+      <option value="packaging">موظف التغليف والشحن</option>
+      <option value="accountant">المحاسب</option>
+    </select>
+    <button class="btn btn-brand">إضافة</button>
+  </form>
+</div>
+<%- include('partials/foot') %>

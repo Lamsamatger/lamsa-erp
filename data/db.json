@@ -1,0 +1,150 @@
+{
+  "meta": {
+    "orderSeq": 1006
+  },
+  "users": [
+    {
+      "id": "u1",
+      "username": "admin",
+      "name": "المدير العام",
+      "role": "admin",
+      "salt": "020438d787e899ab461592e023bf8ceb",
+      "hash": "1fbb7a6d3be3b940fdb6ffd65f404b61e2b83ec2d6f3b49527e843e15d2a6bcbff4e5cdbf04c8f63e10fe786a0cedb18f791f174824e885add012866f3d947e7"
+    },
+    {
+      "id": "u2",
+      "username": "production",
+      "name": "موظف الإنتاج",
+      "role": "production",
+      "salt": "dff477ff65460d57685884b2460f735b",
+      "hash": "4642ba99974aa795281d54897e07eb5bba7bb6bad48e872d1590ec80fc8e837b76980ee864705b8a01be3f34e993ce24f063dcb04b8b5a37a9ddb61b30587b7f"
+    },
+    {
+      "id": "u3",
+      "username": "receiving",
+      "name": "موظف الاستلام والتسليم",
+      "role": "receiving",
+      "salt": "c24165cd088c88f74f3c5d331e20b183",
+      "hash": "680f81aa95fdec22406914599c4048f6badc869f7ee9e93c60be51cb683f389ce4511a769246ed885d6c7dd7c456188322b7a2e92a495c53d4c3445f10439987"
+    },
+    {
+      "id": "u4",
+      "username": "packaging",
+      "name": "موظف التغليف والشحن",
+      "role": "packaging",
+      "salt": "ed685d9c151cdb36f16623b007658d8d",
+      "hash": "527f5f852cf5f845fd48bc4a9b15bdb15aa3a7078c95a35d8d826d9a0ae1b1c9344586a64b685cee9f29d18e665845291929eba78fe3d94419ed1fe3d75cc4bd"
+    },
+    {
+      "id": "u5",
+      "username": "accountant",
+      "name": "المحاسب",
+      "role": "accountant",
+      "salt": "e7d4078d98091689c419941d2b221203",
+      "hash": "88bf6358ead77a6d3b54e8e5c0f68f4b5bc090c92787ff2fed32025e2b0f604fc45097eb3bf69afad31b77d2f99d357f0652eb08cbce85b512bef932697dc120"
+    }
+  ],
+  "products": [
+    {
+      "id": "p1",
+      "name": "برقع مطرز",
+      "category": "برقع",
+      "image_url": "",
+      "sizes": [
+        "0-3 شهور",
+        "3-6 شهور",
+        "6-12 شهور",
+        "1-2 سنة",
+        "2-3 سنة"
+      ],
+      "colors": [
+        "أبيض",
+        "بيج",
+        "وردي"
+      ],
+      "embroidery": true
+    },
+    {
+      "id": "p2",
+      "name": "ثوب كويتي",
+      "category": "ثوب",
+      "image_url": "",
+      "sizes": [
+        "2 سنة",
+        "4 سنة",
+        "6 سنة",
+        "8 سنة",
+        "10 سنة"
+      ],
+      "colors": [
+        "أبيض",
+        "أزرق فاتح"
+      ],
+      "embroidery": true
+    },
+    {
+      "id": "p3",
+      "name": "طقم ثوب وبشت",
+      "category": "طقم",
+      "image_url": "",
+      "sizes": [
+        "2 سنة",
+        "4 سنة",
+        "6 سنة",
+        "8 سنة"
+      ],
+      "colors": [
+        "أبيض",
+        "كحلي"
+      ],
+      "embroidery": true
+    },
+    {
+      "id": "p4",
+      "name": "دقلة مطرزة",
+      "category": "دقلة",
+      "image_url": "",
+      "sizes": [
+        "2 سنة",
+        "4 سنة",
+        "6 سنة"
+      ],
+      "colors": [
+        "أخضر",
+        "عنابي"
+      ],
+      "embroidery": true
+    }
+  ],
+  "workshops": [
+    {
+      "id": "w1",
+      "name": "مشغل النور",
+      "phone": "0500000001",
+      "price_per_piece": 25,
+      "status": "active"
+    },
+    {
+      "id": "w2",
+      "name": "مشغل الإتقان",
+      "phone": "0500000002",
+      "price_per_piece": 22,
+      "status": "active"
+    }
+  ],
+  "embroiderers": [
+    {
+      "id": "e1",
+      "name": "أم سعود للتطريز",
+      "price_per_piece": 10
+    }
+  ],
+  "orders": [],
+  "workshop_jobs": [],
+  "embroidery_jobs": [],
+  "workshop_payments": [],
+  "embroidery_payments": [],
+  "materials": [],
+  "expenses": [],
+  "activity_logs": []
+}

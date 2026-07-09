@@ -1,0 +1,29 @@
+<%- include('../partials/head', {title: 'المنتجات'}) %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="page-title mb-0">المنتجات</h4>
+  <a href="/products/new" class="btn btn-brand">+ منتج جديد</a>
+</div>
+
+<div class="row g-3">
+<% products.forEach(function(p){ %>
+  <div class="col-md-4">
+    <div class="bg-white rounded p-3 shadow-sm h-100">
+      <h6><%= p.name %></h6>
+      <p class="text-muted small mb-1">التصنيف: <%= p.category || '—' %></p>
+      <p class="small mb-1">المقاسات: <%= p.sizes.join(' · ') || '—' %></p>
+      <p class="small mb-1">الألوان: <%= p.colors.join(' · ') || '—' %></p>
+      <% if (p.embroidery) { %><span class="badge bg-info text-dark mb-2">يدعم التطريز</span><% } %>
+      <div class="d-flex gap-2">
+        <a href="/products/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary">تعديل</a>
+        <form method="POST" action="/products/<%= p.id %>/delete" onsubmit="return confirm('حذف المنتج؟')">
+          <button class="btn btn-sm btn-outline-danger">حذف</button>
+        </form>
+      </div>
+    </div>
+  </div>
+<% }) %>
+<% if (!products.length) { %>
+  <div class="col-12"><p class="text-muted">لا توجد منتجات بعد. <a href="/products/new">أضف منتجاً الآن</a></p></div>
+<% } %>
+</div>
+<%- include('../partials/foot') %>

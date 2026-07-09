@@ -1,0 +1,80 @@
+body { font-family: 'Tajawal', sans-serif; background: #f4f6f9; }
+
+.topbar {
+  background: #1a2d4a;
+  height: 52px;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+}
+.brand { color: #fff; font-weight: 700; font-size: 1.1rem; }
+
+.app-wrap { display: flex; margin-top: 52px; min-height: calc(100vh - 52px); }
+
+.sidebar {
+  width: 200px;
+  min-width: 200px;
+  background: #fff;
+  border-left: 1px solid #e0e0e0;
+  padding: 12px 0;
+  position: fixed;
+  top: 52px;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  z-index: 900;
+  transition: transform .25s;
+}
+.sidebar .nav-link {
+  display: block;
+  padding: 9px 18px;
+  color: #333;
+  font-size: .92rem;
+  border-right: 3px solid transparent;
+  text-decoration: none;
+}
+.sidebar .nav-link.active,
+.sidebar .nav-link:hover { background: #f0f4ff; border-right-color: #c9a24b; color: #1a2d4a; }
+
+.content { margin-right: 200px; padding: 24px; width: 100%; }
+.content-full { padding: 24px; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+
+.page-title { font-weight: 700; color: #1a2d4a; margin-bottom: 20px; }
+
+.card-stat {
+  background: #fff;
+  border-radius: 10px;
+  border-right: 4px solid #c9a24b;
+  padding: 14px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07);
+}
+.card-stat .num { font-size: 1.8rem; font-weight: 900; color: #1a2d4a; }
+.card-stat .lbl { font-size: .8rem; color: #888; }
+
+.badge-status { font-size: .78rem; }
+.bg-purple { background-color: #7c3aed !important; }
+
+.late-row { background: #fff8e1 !important; }
+
+.login-box {
+  background: #fff;
+  border-radius: 14px;
+  padding: 36px 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.10);
+}
+
+.btn-brand {
+  background: #c9a24b;
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+.btn-brand:hover { background: #b8902f; color: #fff; }
+
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(200px); }
+  .sidebar.show { transform: translateX(0); }
+  .content { margin-right: 0; }
+}

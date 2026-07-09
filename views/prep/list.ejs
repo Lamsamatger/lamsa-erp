@@ -1,0 +1,74 @@
+<%- include('../partials/head', {title: 'قوائم التجهيز'}) %>
+<h4 class="page-title">قوائم التجهيز</h4>
+
+<form method="GET" action="/prep" class="bg-white rounded p-3 shadow-sm mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small">المشغل</label>
+      <select class="form-select form-select-sm" name="workshop_id">
+        <option value="">الكل</option>
+        <% workshops.forEach(function(w){ %>
+          <option value="<%= w.id %>" <%= (filters.workshop_id===w.id)?'selected':'' %>><%= w.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">التاريخ</label>
+      <input class="form-control form-control-sm" type="date" name="date" value="<%= filters.date||'' %>">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">المنتج</label>
+      <select class="form-select form-select-sm" name="product_id">
+        <option value="">الكل</option>
+        <% products.forEach(function(p){ %>
+          <option value="<%= p.id %>" <%= (filters.product_id===p.id)?'selected':'' %>><%= p.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">المقاس</label>
+      <input class="form-control form-control-sm" name="size" value="<%= filters.size||'' %>" placeholder="المقاس">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-sm btn-outline-secondary w-100">تصفية</button>
+    </div>
+  </div>
+</form>
+
+<form method="POST" action="/prep/print">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span class="small text-muted"><%= orders.length %> طلب</span>
+    <div class="d-flex gap-2 align-items-center">
+      <label class="small"><input type="checkbox" onclick="toggleAll(this)" class="me-1">تحديد الكل</label>
+      <button class="btn btn-sm btn-outline-secondary" type="submit">🖨️ طباعة المحدد</button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-hover bg-white rounded shadow-sm">
+      <thead>
+        <tr><th><input type="checkbox" onclick="toggleAll(this)"></th><th>رقم الطلب</th><th>الحالة</th><th>القطع</th><th>التاريخ</th><th></th></tr>
+      </thead>
+      <tbody>
+      <% orders.forEach(function(o){ %>
+        <tr>
+          <td><input type="checkbox" class="order-check" name="order_ids" value="<%= o.id %>"></td>
+          <td><strong><%= o.order_number %></strong></td>
+          <td><span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span></td>
+          <td>
+            <% o.items.forEach(function(it){ %>
+              <span class="badge bg-light text-dark border me-1"><%= it.product_name %> <%= it.size %></span>
+            <% }) %>
+          </td>
+          <td><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></td>
+          <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a></td>
+        </tr>
+      <% }) %>
+      <% if (!orders.length) { %>
+        <tr><td colspan="6" class="text-center text-muted py-4">لا توجد طلبات</td></tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</form>
+<%- include('../partials/foot') %>

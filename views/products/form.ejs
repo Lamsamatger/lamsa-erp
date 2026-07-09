@@ -1,0 +1,30 @@
+<%- include('../partials/head', {title: product ? 'تعديل منتج' : 'منتج جديد'}) %>
+<h4 class="page-title"><%= product ? 'تعديل منتج' : 'إضافة منتج جديد' %></h4>
+<form method="POST" action="<%= product ? '/products/'+product.id+'/edit' : '/products/new' %>" class="bg-white p-4 rounded shadow-sm" style="max-width:600px">
+  <div class="mb-3">
+    <label class="form-label">اسم المنتج</label>
+    <input class="form-control" name="name" value="<%= product ? product.name : '' %>" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">التصنيف</label>
+    <input class="form-control" name="category" value="<%= product ? product.category : '' %>">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">رابط صورة المنتج</label>
+    <input class="form-control" name="image_url" value="<%= product ? product.image_url : '' %>">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">المقاسات (افصل بفاصلة ,)</label>
+    <input class="form-control" name="sizes" value="<%= product ? product.sizes.join(', ') : '' %>">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">الألوان (افصل بفاصلة ,)</label>
+    <input class="form-control" name="colors" value="<%= product ? product.colors.join(', ') : '' %>">
+  </div>
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" name="embroidery" id="emb" <%= (product && product.embroidery) ? 'checked' : '' %>>
+    <label class="form-check-label" for="emb">يدعم التطريز باسم مخصص</label>
+  </div>
+  <button class="btn btn-brand">حفظ</button>
+</form>
+<%- include('../partials/foot') %>

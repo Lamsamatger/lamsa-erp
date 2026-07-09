@@ -1,0 +1,55 @@
+<%- include('../partials/head', {title: 'الطلبات'}) %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="page-title mb-0">الطلبات</h4>
+  <a href="/orders/new" class="btn btn-brand">+ طلب جديد</a>
+</div>
+
+<form method="GET" action="/orders" class="bg-white rounded p-3 shadow-sm mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small">الحالة</label>
+      <select class="form-select form-select-sm" name="status">
+        <option value="">الكل</option>
+        <% ORDER_STATUSES.forEach(function(s){ %>
+          <option value="<%= s %>" <%= (filters.status===s)?'selected':'' %>><%= s %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">المدينة</label>
+      <input class="form-control form-control-sm" name="city" value="<%= filters.city||'' %>" placeholder="ابحث بالمدينة">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small">بحث (رقم طلب / عميل / جوال)</label>
+      <input class="form-control form-control-sm" name="q" value="<%= filters.q||'' %>" placeholder="بحث...">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-sm btn-outline-secondary w-100">تصفية</button>
+    </div>
+  </div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-sm table-hover bg-white rounded shadow-sm">
+    <thead>
+      <tr><th>رقم الطلب</th><th>العميل</th><th>الجوال</th><th>المدينة</th><th>الحالة</th><th>التاريخ</th><th></th></tr>
+    </thead>
+    <tbody>
+    <% orders.forEach(function(o){ %>
+      <tr class="<%= o.late ? 'late-row' : '' %>">
+        <td><strong><%= o.order_number %></strong></td>
+        <td><%= o.customer_name || '—' %></td>
+        <td><%= o.customer_phone || '—' %></td>
+        <td><%= o.city || '—' %></td>
+        <td><span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span></td>
+        <td><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></td>
+        <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a></td>
+      </tr>
+    <% }) %>
+    <% if (!orders.length) { %>
+      <tr><td colspan="7" class="text-center text-muted py-4">لا توجد طلبات</td></tr>
+    <% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../partials/foot') %>

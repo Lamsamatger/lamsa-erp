@@ -1,0 +1,55 @@
+<%- include('partials/head', {title: 'لوحة التحكم'}) %>
+<h4 class="page-title">لوحة التحكم</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card-stat"><div class="num"><%= totalOrders %></div><div class="lbl">إجمالي الطلبات</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat" style="border-color:#dc3545"><div class="num text-danger"><%= late.length %></div><div class="lbl">طلبات متأخرة</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat" style="border-color:#198754"><div class="num text-success"><%= doneToday %></div><div class="lbl">تم تنفيذها اليوم</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card-stat" style="border-color:#c9a24b"><div class="num" style="color:#c9a24b"><%= doneThisMonth %></div><div class="lbl">تم تنفيذها هذا الشهر</div></div>
+  </div>
+</div>
+
+<h6 class="mb-3">الطلبات حسب الحالة</h6>
+<div class="row g-3 mb-4">
+  <% ORDER_STATUSES.forEach(function(s){ %>
+  <div class="col-6 col-md-3 col-lg-2">
+    <a href="/orders?status=<%= encodeURIComponent(s) %>" class="text-decoration-none">
+      <div class="card-stat text-center">
+        <div class="num" style="font-size:1.4rem"><%= counts[s] %></div>
+        <div class="lbl"><%= s %></div>
+      </div>
+    </a>
+  </div>
+  <% }) %>
+</div>
+
+<% if (late.length) { %>
+<h6 class="mb-3 text-danger">⏰ طلبات متأخرة (أكثر من 4 أيام)</h6>
+<div class="table-responsive">
+  <table class="table table-sm table-hover bg-white rounded">
+    <thead><tr><th>رقم الطلب</th><th>العميل</th><th>المرحلة الحالية</th><th>عدد أيام التأخير</th><th></th></tr></thead>
+    <tbody>
+      <% late.forEach(function(o){ %>
+      <tr class="late-row">
+        <td><%= o.order_number %></td>
+        <td><%= o.customer_name %></td>
+        <td><span class="badge bg-<%= STATUS_COLORS[o.status] %> badge-status"><%= o.status %></span></td>
+        <td><strong class="text-danger"><%= o.days_late %> يوم</strong></td>
+        <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } else { %>
+<div class="alert alert-success">لا توجد طلبات متأخرة حالياً 🎉</div>
+<% } %>
+
+<%- include('partials/foot') %>

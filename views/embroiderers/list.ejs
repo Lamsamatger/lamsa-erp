@@ -1,0 +1,26 @@
+<%- include('../partials/head', {title: 'المطرزين'}) %>
+<h4 class="page-title">المطرزين</h4>
+
+<div class="row g-3 mb-4">
+<% embroiderers.forEach(function(e){ %>
+  <div class="col-md-4">
+    <a href="/embroiderers/<%= e.id %>" class="text-decoration-none">
+    <div class="bg-white rounded p-3 shadow-sm h-100">
+      <h6><%= e.name %></h6>
+      <p class="small mb-1">سعر القطعة: <strong><%= e.price_per_piece %> ر.س</strong></p>
+      <p class="small mb-0">عدد المهام: <%= e.jobsCount %> · منجز: <%= e.totalDone %> · أخطاء: <%= e.totalErrors %></p>
+    </div>
+    </a>
+  </div>
+<% }) %>
+</div>
+
+<div class="bg-white rounded p-3 shadow-sm" style="max-width:500px">
+  <h6>إضافة مطرز جديد</h6>
+  <form method="POST" action="/embroiderers/new">
+    <input class="form-control mb-2" name="name" placeholder="اسم المطرز" required>
+    <input class="form-control mb-2" name="price_per_piece" type="number" step="0.01" placeholder="سعر القطعة">
+    <button class="btn btn-brand">إضافة</button>
+  </form>
+</div>
+<%- include('../partials/foot') %>

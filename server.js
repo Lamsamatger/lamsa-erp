@@ -6,7 +6,15 @@ const { load, save, newId, nextOrderNumber, hashPassword, verifyPassword, log } 
 const { ORDER_STATUSES, STATUS_COLORS, ROLES, PERMISSIONS, DELAY_DAYS_THRESHOLD } = require('./lib/constants');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+
+// Startup security checks
+if (!process.env.SESSION_SECRET) {
+  console.warn('⚠️  SESSION_SECRET is not set — using hardcoded fallback. Set it in Replit Secrets before going live.');
+}
+if (!process.env.SALLA_WEBHOOK_SECRET) {
+  console.warn('⚠️  SALLA_WEBHOOK_SECRET is not set — webhook signature verification is disabled (dev/test mode only).');
+}
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -17,7 +25,7 @@ app.use(express.json({
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 app.use(session({
-  secret: 'lamsa-azyai-production-erp-secret-key',
+  secret: process.env.SESSION_SECRET || 'lamsa-azyai-production-erp-secret-key',
   resave: false,
   saveUninitialized: false,
   cookie: { maxAge: 1000 * 60 * 60 * 12 }

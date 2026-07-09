@@ -1,0 +1,28 @@
+<%- include('partials/head', {title: 'التقارير'}) %>
+<h4 class="page-title">التقارير</h4>
+
+<div class="bg-white rounded p-3 shadow-sm mb-3">
+  <h6>أداء المشاغل</h6>
+  <table class="table table-sm">
+    <thead><tr><th>المشغل</th><th>مُسلّم</th><th>مُستلم</th></tr></thead>
+    <tbody>
+    <% byWorkshop.forEach(function(w){ %>
+      <tr><td><%= w.name %></td><td><%= w.delivered %></td><td><%= w.received %></td></tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<div class="bg-white rounded p-3 shadow-sm">
+  <h6>الإنتاج اليومي (آخر 14 يوم فيها تنفيذ)</h6>
+  <table class="table table-sm">
+    <thead><tr><th>التاريخ</th><th>عدد الطلبات المنفذة</th></tr></thead>
+    <tbody>
+    <% daily.forEach(function(d){ %>
+      <tr><td><%= d[0] %></td><td><%= d[1] %></td></tr>
+    <% }) %>
+    <% if (!daily.length) { %><tr><td colspan="2" class="text-center text-muted">لا توجد بيانات بعد</td></tr><% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('partials/foot') %>

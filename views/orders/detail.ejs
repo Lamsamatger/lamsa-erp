@@ -1,0 +1,102 @@
+<%- include('../partials/head', {title: 'طلب ' + order.order_number}) %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="page-title mb-0">
+    طلب <%= order.order_number %>
+    <span class="badge bg-<%= STATUS_COLORS[order.status] || 'secondary' %> badge-status ms-2"><%= order.status %></span>
+    <% if (late) { %><span class="badge bg-danger ms-1">متأخر</span><% } %>
+  </h4>
+  <a href="/orders/<%= order.id %>/print" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️ طباعة بطاقات</a>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="bg-white rounded p-3 shadow-sm">
+      <h6>بيانات العميل</h6>
+      <p class="mb-1"><strong>الاسم:</strong> <%= order.customer_name || '—' %></p>
+      <p class="mb-1"><strong>الجوال:</strong> <%= order.customer_phone || '—' %></p>
+      <p class="mb-1"><strong>المدينة:</strong> <%= order.city || '—' %></p>
+      <p class="mb-1"><strong>الموظف المسؤول:</strong> <%= order.assigned_employee || '—' %></p>
+      <% if (order.notes) { %><p class="mb-0"><strong>ملاحظات:</strong> <%= order.notes %></p><% } %>
+      <% if (order.salla_order_id) { %><p class="mb-0 mt-1 text-muted small">رقم طلب سلة: <%= order.salla_order_id %></p><% } %>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="bg-white rounded p-3 shadow-sm">
+      <h6>تغيير الحالة</h6>
+      <form method="POST" action="/orders/<%= order.id %>/status" class="d-flex gap-2 flex-wrap">
+        <select class="form-select form-select-sm" name="status" style="max-width:200px">
+          <% ORDER_STATUSES.forEach(function(s){ %>
+            <option value="<%= s %>" <%= order.status===s?'selected':'' %>><%= s %></option>
+          <% }) %>
+        </select>
+        <input class="form-control form-control-sm" name="shipment_number" value="<%= order.shipment_number||'' %>" placeholder="رقم الشحنة (اختياري)" style="max-width:180px">
+        <button class="btn btn-sm btn-brand">حفظ</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded p-3 shadow-sm mb-3">
+  <h6>القطع المطلوبة</h6>
+  <table class="table table-sm">
+    <thead><tr><th>المنتج</th><th>المقاس</th><th>اللون</th><th>اسم التطريز</th><th>الكمية</th><th>الباركود</th><th>المرحلة</th><th>ملاحظات</th></tr></thead>
+    <tbody>
+    <% order.items.forEach(function(it){ %>
+      <tr>
+        <td><%= it.product_name %></td>
+        <td><%= it.size || '—' %></td>
+        <td><%= it.color || '—' %></td>
+        <td><%= it.embroidery_name || '—' %></td>
+        <td><%= it.qty %></td>
+        <td><code><%= it.barcode %></code></td>
+        <td><%= it.stage || '—' %></td>
+        <td><%= it.notes || '' %></td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-6">
+    <div class="bg-white rounded p-3 shadow-sm">
+      <h6>تعيين مشغل</h6>
+      <form method="POST" action="/orders/<%= order.id %>/assign-workshop" class="d-flex gap-2">
+        <select class="form-select form-select-sm" name="workshop_id" required>
+          <option value="">اختر مشغل</option>
+          <% workshops.forEach(function(w){ %>
+            <option value="<%= w.id %>"><%= w.name %></option>
+          <% }) %>
+        </select>
+        <input class="form-control form-control-sm" type="number" name="qty" placeholder="الكمية" style="max-width:100px" required>
+        <button class="btn btn-sm btn-brand">تعيين</button>
+      </form>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="bg-white rounded p-3 shadow-sm">
+      <h6>مهام المشاغل</h6>
+      <% if (jobs.length) { %>
+        <% jobs.forEach(function(j){ %>
+          <% var ws = workshops.find(function(w){ return w.id===j.workshop_id; }); %>
+          <p class="mb-1 small"><strong><%= ws ? ws.name : j.workshop_id %></strong> — مُسلّم: <%= j.delivered_qty %> · مُستلم: <%= j.received_qty %> · <span class="badge bg-secondary"><%= j.status %></span></p>
+        <% }) %>
+      <% } else { %>
+        <p class="text-muted small mb-0">لا توجد مهام بعد</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (embJobs.length) { %>
+<div class="bg-white rounded p-3 shadow-sm mb-3">
+  <h6>مهام التطريز</h6>
+  <% embJobs.forEach(function(ej){ %>
+    <% var emb = embroiderers.find(function(e){ return e.id===ej.embroiderer_id; }); %>
+    <p class="mb-1 small"><strong><%= emb ? emb.name : ej.embroiderer_id %></strong> — منجز: <%= ej.done_qty %> · أخطاء: <%= ej.errors %> <% if (ej.notes) { %>· <%= ej.notes %><% } %></p>
+  <% }) %>
+</div>
+<% } %>
+
+<p class="text-muted small">تاريخ الإنشاء: <%= new Date(order.created_at).toLocaleString('ar-SA') %> · آخر تحديث: <%= new Date(order.updated_at).toLocaleString('ar-SA') %></p>
+<%- include('../partials/foot') %>
