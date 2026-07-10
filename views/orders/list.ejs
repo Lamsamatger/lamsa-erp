@@ -32,6 +32,16 @@
   </div>
 </form>
 
+<%
+const STATUS_PROGRESS_LIST = {
+  'جديد': 5, 'مراجعة': 15, 'تجهيز': 25,
+  'عند المشغل': 40, 'مستلم من المشغل': 52,
+  'عند المطرز': 63, 'جاهز للتغليف': 72,
+  'في التغليف': 82, 'تم التغليف': 90,
+  'تم الشحن': 96, 'تم التنفيذ': 100, 'ملغي': 0
+};
+%>
+
 <p class="text-muted small mb-2"><%= orders.length %> طلب</p>
 
 <!-- Desktop table -->
@@ -40,8 +50,10 @@
     <thead class="table-light">
       <tr>
         <th>رقم الطلب</th>
+        <th>النوع</th>
         <th>المدينة</th>
         <th>الحالة</th>
+        <th>التقدم</th>
         <th>القطع</th>
         <th>التاريخ</th>
         <th></th>
@@ -49,12 +61,28 @@
     </thead>
     <tbody>
     <% orders.forEach(function(o){ %>
+      <% var progress = STATUS_PROGRESS_LIST[o.status] || 0; %>
       <tr class="<%= o.late ? 'late-row' : '' %>">
         <td><strong><%= o.order_number %></strong></td>
+        <td>
+          <% if (o.order_type === 'مخزون') { %>
+            <span class="badge bg-success" style="font-size:.65rem">مخزون</span>
+          <% } else { %>
+            <span class="badge bg-primary" style="font-size:.65rem">إنتاج</span>
+          <% } %>
+        </td>
         <td><%= o.city || '—' %></td>
         <td>
           <span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span>
           <% if (o.late) { %><span class="badge bg-danger ms-1">متأخر</span><% } %>
+        </td>
+        <td style="min-width:100px">
+          <div class="d-flex align-items-center gap-1">
+            <div class="progress flex-grow-1" style="height:5px;border-radius:3px">
+              <div class="progress-bar" style="width:<%= progress %>%;background:<%= progress===100?'#198754':o.late?'#dc3545':'#c9a24b' %>;transition:width .5s"></div>
+            </div>
+            <small class="text-muted" style="font-size:.68rem;min-width:24px"><%= progress %>%</small>
+          </div>
         </td>
         <td class="text-muted small"><%= o.items ? o.items.length : '—' %> قطع</td>
         <td class="text-muted small"><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></td>
@@ -62,7 +90,7 @@
       </tr>
     <% }) %>
     <% if (!orders.length) { %>
-      <tr><td colspan="6" class="text-center text-muted py-4">لا توجد طلبات</td></tr>
+      <tr><td colspan="8" class="text-center text-muted py-4">لا توجد طلبات</td></tr>
     <% } %>
     </tbody>
   </table>
@@ -71,15 +99,30 @@
 <!-- Mobile cards -->
 <div class="order-mobile-list">
   <% orders.forEach(function(o){ %>
+  <% var progress = STATUS_PROGRESS_LIST[o.status] || 0; %>
   <div class="bg-white rounded-3 shadow-sm p-3 mb-2 <%= o.late ? 'border border-warning' : '' %>">
     <div class="d-flex justify-content-between align-items-start mb-1">
-      <strong class="fs-6"><%= o.order_number %></strong>
+      <div class="d-flex align-items-center gap-2">
+        <strong class="fs-6"><%= o.order_number %></strong>
+        <% if (o.order_type === 'مخزون') { %>
+          <span class="badge bg-success" style="font-size:.62rem">مخزون</span>
+        <% } else { %>
+          <span class="badge bg-primary" style="font-size:.62rem">إنتاج</span>
+        <% } %>
+      </div>
       <span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span>
     </div>
     <div class="text-muted small mb-2 d-flex gap-3 flex-wrap">
       <% if (o.city) { %><span>📍 <%= o.city %></span><% } %>
       <span>📅 <%= new Date(o.created_at).toLocaleDateString('ar-SA') %></span>
       <% if (o.late) { %><span class="text-danger fw-bold">⚠️ متأخر</span><% } %>
+    </div>
+    <!-- Progress bar -->
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <div class="progress flex-grow-1" style="height:4px;border-radius:2px">
+        <div class="progress-bar" style="width:<%= progress %>%;background:<%= progress===100?'#198754':o.late?'#dc3545':'#c9a24b' %>"></div>
+      </div>
+      <small class="text-muted" style="font-size:.68rem"><%= progress %>%</small>
     </div>
     <div class="d-flex gap-2 flex-wrap mb-2">
       <% (o.items||[]).forEach(function(it){ %>

@@ -1,3 +1,4 @@
+- [Advanced Order Workflow](advanced-order-workflow.md) — ORDER_TYPES, classifyOrder, stock stage skipping, auto-queue embroidery, print card privacy, prep tabs, dashboard KPI row 3
 - [Next.js Dashboard Architecture](nextjs-dashboard-arch.md) — Next.js 14 (not 15, CVE-blocked), `.mjs` config only, Arabic locale → 'use client', ERP links via NEXT_PUBLIC_ERP_URL
 - [Workflow Port Split](workflow-port-split.md) — Express ERP on port 5000 (webview), Next.js dashboard on port 3000 (console); dashboard script uses --port 3000
 - [Production & Packaging Module](production-module.md) — ORDER_STATUSES now 12, isLate excludes all post-QC statuses, initInv/initPkg pattern for lazy array init

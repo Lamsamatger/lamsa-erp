@@ -37,6 +37,8 @@
 }
 .pic-chip.stage { background:#fff8e1; color:#92700a; }
 .pic-chip.qty { background:#e8f5e9; color:#1b5e20; }
+.pic-chip.type-prod { background:#e8f0fd; color:#1565c0; }
+.pic-chip.type-stock { background:#e8f5e9; color:#1b5e20; }
 .pic-barcode-chip {
   font-family:monospace; font-size:.65rem; color:#888; background:#f8f8f8;
   border:1px solid #e0e0e0; border-radius:5px; padding:1px 6px;
@@ -45,8 +47,9 @@
 .pic-card-footer {
   border-top:1px solid #f0f0f0; padding:7px 10px;
   display:flex; align-items:center; justify-content:space-between; gap:6px;
+  flex-wrap:wrap;
 }
-.pic-card-footer .action-btns { display:flex; gap:5px; }
+.pic-card-footer .action-btns { display:flex; gap:5px; flex-wrap:wrap; }
 .qr-btn {
   display:inline-flex; align-items:center; justify-content:center;
   width:32px; height:32px; border-radius:7px;
@@ -73,6 +76,26 @@
 
 /* order summary row */
 .order-summary-row { background:#fff; border-radius:10px; border:1px solid #eee; padding:10px 14px; margin-bottom:8px; }
+
+/* tab filter pills */
+.tab-pills { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.tab-pill {
+  padding:5px 14px; border-radius:20px; font-size:.8rem; font-weight:700;
+  border:1.5px solid #e0e0e0; background:#fff; color:#555;
+  text-decoration:none; transition:all .15s; cursor:pointer;
+}
+.tab-pill:hover { border-color:#1a2d4a; color:#1a2d4a; }
+.tab-pill.active { background:#1a2d4a; color:#fff; border-color:#1a2d4a; }
+
+/* action mini buttons on cards */
+.prep-action-btn {
+  font-size:.7rem; padding:3px 8px; border-radius:6px; border:1px solid #d0d0d0;
+  background:#fff; cursor:pointer; font-family:'Tajawal',sans-serif; font-weight:700;
+  transition:all .15s; white-space:nowrap;
+}
+.prep-action-btn:hover { background:#1a2d4a; color:#fff; border-color:#1a2d4a; }
+.prep-action-btn.green:hover { background:#198754; border-color:#198754; }
+.prep-action-btn.purple:hover { background:#7c3aed; border-color:#7c3aed; }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -83,8 +106,27 @@
   </div>
 </div>
 
+<!-- Tab Filter Pills -->
+<%
+var currentTab = filters.tab || 'all';
+var tabLabels = [
+  { key: 'all',        label: 'الكل' },
+  { key: 'new',        label: 'جديد' },
+  { key: 'production', label: 'إنتاج' },
+  { key: 'stock',      label: 'مخزون' },
+  { key: 'printing',   label: 'جاهز للطباعة' },
+  { key: 'packaging',  label: 'جاهز للتغليف' },
+];
+%>
+<div class="tab-pills">
+  <% tabLabels.forEach(function(t){ %>
+    <a href="/prep?tab=<%= t.key %>" class="tab-pill <%= currentTab===t.key ? 'active' : '' %>"><%= t.label %></a>
+  <% }) %>
+</div>
+
 <!-- Filters -->
 <form method="GET" action="/prep" class="bg-white rounded-3 p-3 shadow-sm mb-3">
+  <input type="hidden" name="tab" value="<%= currentTab %>">
   <div class="row g-2 align-items-end">
     <div class="col-6 col-md-2">
       <label class="form-label small fw-bold mb-1">المرحلة</label>
@@ -161,6 +203,8 @@
       products.forEach(p => { productMap[p.id] = p; });
       const orderItemCountMap = {};
       orders.forEach(o => { orderItemCountMap[o.id] = o.items.reduce((s,i)=>s+i.qty,0); });
+      const orderTypeMap = {};
+      orders.forEach(o => { orderTypeMap[o.id] = o.order_type || 'إنتاج'; });
     %>
     <% items.forEach(function(item){ %>
     <div class="prep-item-card" id="card-<%= item.id %>" data-order-id="<%= item.order_id %>">
@@ -171,7 +215,14 @@
             onchange="onItemCheck(this)" title="تحديد للطباعة">
           <span class="order-num"><%= item.order_number %></span>
         </div>
-        <span class="status-chip"><%= item.order_status %></span>
+        <div class="d-flex gap-1 align-items-center">
+          <% if (orderTypeMap[item.order_id] === 'مخزون') { %>
+            <span style="font-size:.62rem;background:rgba(25,135,84,.3);color:#fff;padding:1px 5px;border-radius:10px;font-weight:700">مخزون</span>
+          <% } else { %>
+            <span style="font-size:.62rem;background:rgba(13,110,253,.3);color:#fff;padding:1px 5px;border-radius:10px;font-weight:700">إنتاج</span>
+          <% } %>
+          <span class="status-chip"><%= item.order_status %></span>
+        </div>
       </div>
 
       <!-- Body -->
@@ -204,18 +255,31 @@
         </div>
       </div>
 
-      <!-- Footer -->
+      <!-- Footer: action buttons -->
       <div class="pic-card-footer">
         <div class="action-btns">
           <a href="/barcode/item/<%= encodeURIComponent(item.barcode) %>" class="qr-btn" title="مسح / تحديث المرحلة">📷</a>
           <a href="/orders/<%= item.order_id %>" class="qr-btn" title="فتح الطلب الكامل">📦</a>
         </div>
-        <div style="text-align:left">
-          <a href="/barcode/item/<%= encodeURIComponent(item.barcode) %>"
-            class="d-flex align-items-center gap-1"
-            style="font-size:.72rem;color:#1a2d4a;text-decoration:none;font-weight:600;">
-            تفاصيل ←
-          </a>
+        <div class="d-flex gap-1 flex-wrap">
+          <!-- Confirm Prep -->
+          <form method="POST" action="/orders/<%= item.order_id %>/status" style="display:contents">
+            <input type="hidden" name="status" value="تجهيز">
+            <input type="hidden" name="redirect" value="/prep?tab=<%= currentTab %>">
+            <button type="submit" class="prep-action-btn" title="تأكيد التجهيز">✓ تجهيز</button>
+          </form>
+          <!-- Send to Production -->
+          <form method="POST" action="/orders/<%= item.order_id %>/status" style="display:contents">
+            <input type="hidden" name="status" value="عند المشغل">
+            <input type="hidden" name="redirect" value="/prep?tab=<%= currentTab %>">
+            <button type="submit" class="prep-action-btn green" title="إرسال للمشغل">🏭 مشغل</button>
+          </form>
+          <!-- Send to Embroidery -->
+          <form method="POST" action="/orders/<%= item.order_id %>/status" style="display:contents">
+            <input type="hidden" name="status" value="عند المطرز">
+            <input type="hidden" name="redirect" value="/prep?tab=<%= currentTab %>">
+            <button type="submit" class="prep-action-btn purple" title="إرسال للمطرز">🧵 مطرز</button>
+          </form>
         </div>
       </div>
     </div>
@@ -233,11 +297,12 @@
           <tr>
             <th style="width:36px"></th>
             <th>رقم الطلب</th>
+            <th>النوع</th>
             <th>الحالة</th>
             <th>القطع</th>
             <th>المرحلة</th>
             <th>التاريخ</th>
-            <th></th>
+            <th>الإجراءات</th>
           </tr>
         </thead>
         <tbody>
@@ -245,6 +310,13 @@
           <tr>
             <td class="text-center"><input type="checkbox" class="order-check select-check" name="order_ids" value="<%= o.id %>"></td>
             <td><strong class="font-monospace"><%= o.order_number %></strong></td>
+            <td>
+              <% if (o.order_type === 'مخزون') { %>
+                <span class="badge bg-success" style="font-size:.62rem">مخزون</span>
+              <% } else { %>
+                <span class="badge bg-primary" style="font-size:.62rem">إنتاج</span>
+              <% } %>
+            </td>
             <td><span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span></td>
             <td>
               <div class="d-flex flex-wrap gap-1">
@@ -259,9 +331,14 @@
             </td>
             <td class="text-muted small"><%= new Date(o.created_at).toLocaleDateString('ar-SA',{calendar:'gregory'}) %></td>
             <td>
-              <div class="d-flex gap-1">
+              <div class="d-flex gap-1 flex-wrap">
                 <a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a>
                 <a href="/orders/<%= o.id %>/print" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️</a>
+                <form method="POST" action="/orders/<%= o.id %>/status" style="display:contents">
+                  <input type="hidden" name="status" value="تجهيز">
+                  <input type="hidden" name="redirect" value="/prep?tab=<%= currentTab %>">
+                  <button class="btn btn-sm btn-outline-primary" title="تأكيد التجهيز">✓</button>
+                </form>
               </div>
             </td>
           </tr>
@@ -278,6 +355,11 @@
           <input type="checkbox" class="order-check select-check" name="order_ids" value="<%= o.id %>" style="width:18px;height:18px">
           <div>
             <strong class="font-monospace"><%= o.order_number %></strong>
+            <% if (o.order_type === 'مخزون') { %>
+              <span class="badge bg-success ms-1" style="font-size:.6rem">مخزون</span>
+            <% } else { %>
+              <span class="badge bg-primary ms-1" style="font-size:.6rem">إنتاج</span>
+            <% } %>
             <div class="d-flex flex-wrap gap-1 mt-1">
               <% o.items.forEach(function(it){ %>
                 <span class="badge bg-light text-dark border" style="font-size:.7rem;"><%= it.product_name %> · <%= it.size||'—' %></span>

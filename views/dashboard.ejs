@@ -52,7 +52,7 @@
 </div>
 
 <%# ════ KPI ROW 2 ════ %>
-<div class="row g-3 mb-4">
+<div class="row g-3 mb-3">
   <div class="col-6 col-md-4 col-lg-3">
     <a href="/packaging" class="text-decoration-none">
       <div class="kpi-card" style="border-color:#0d9488">
@@ -93,6 +93,96 @@
         <div class="progress mt-1" style="height:4px;border-radius:2px">
           <div class="progress-bar" style="width:<%=progressPct%>%;background:#7c3aed;transition:width .6s"></div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%# ════ KPI ROW 3 — Advanced Order Workflow ════ %>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/orders?status=%D8%AC%D8%AF%D9%8A%D8%AF" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#6c757d">
+        <div class="kpi-icon" style="background:#f0f2f5">📬</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#6c757d"><%= newOrdersCount %></div>
+          <div class="kpi-lbl">طلبات جديدة</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/orders" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#0d6efd">
+        <div class="kpi-icon" style="background:#e8f0fd">🏭</div>
+        <div class="kpi-body">
+          <div class="kpi-num text-primary"><%= productionOrdersCount %></div>
+          <div class="kpi-lbl">طلبات الإنتاج</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/orders" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#198754">
+        <div class="kpi-icon" style="background:#e6f4ed">📦</div>
+        <div class="kpi-body">
+          <div class="kpi-num text-success"><%= stockOrdersCount %></div>
+          <div class="kpi-lbl">طلبات المخزون</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/workshops" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#ffc107">
+        <div class="kpi-icon" style="background:#fff8e1">✂️</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#e6a817"><%= atWorkshopCount %></div>
+          <div class="kpi-lbl">عند المشاغل</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/embroiderers" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#7c3aed">
+        <div class="kpi-icon" style="background:#f3eeff">🧵</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#7c3aed"><%= embroideryPendingCount %></div>
+          <div class="kpi-lbl">قيد التطريز</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/packaging" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#0d9488">
+        <div class="kpi-icon" style="background:#e6f7f6">📦</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#0d9488"><%= readyForPackagingCount %></div>
+          <div class="kpi-lbl">جاهز للتغليف</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <a href="/packaging" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#17a2b8">
+        <div class="kpi-icon" style="background:#e0f5f8">🚚</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#17a2b8"><%= readyForShippingCount %></div>
+          <div class="kpi-lbl">جاهز للشحن</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3 col-lg-3">
+    <div class="kpi-card" style="border-color:#dc3545<%= delayedOrdersCount > 0 ? '' : ';opacity:.6' %>">
+      <div class="kpi-icon" style="background:#fde8e8">⏰</div>
+      <div class="kpi-body">
+        <div class="kpi-num text-danger"><%= delayedOrdersCount %></div>
+        <div class="kpi-lbl">طلبات متأخرة</div>
       </div>
     </div>
   </div>
@@ -297,6 +387,7 @@
       <thead>
         <tr>
           <th style="padding-right:16px">رقم الطلب</th>
+          <th>النوع</th>
           <% if (!hideCustomer) { %><th>العميل</th><% } %>
           <th>القطع</th>
           <th>المرحلة الحالية</th>
@@ -311,6 +402,13 @@
           <td style="padding-right:16px">
             <strong class="text-primary"><%= o.order_number %></strong>
             <% if (o.late) { %><span class="badge bg-danger ms-1" style="font-size:.65rem">متأخر</span><% } %>
+          </td>
+          <td>
+            <% if (o.order_type === 'مخزون') { %>
+              <span class="badge bg-success" style="font-size:.62rem">مخزون</span>
+            <% } else { %>
+              <span class="badge bg-primary" style="font-size:.62rem">إنتاج</span>
+            <% } %>
           </td>
           <% if (!hideCustomer) { %>
           <td class="text-muted small"><%= o.customer_name %></td>
@@ -332,7 +430,7 @@
         </tr>
         <% }) %>
         <% if (recentOrders.length === 0) { %>
-        <tr><td colspan="7" class="text-center text-muted py-4">لا توجد طلبات بعد</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">لا توجد طلبات بعد</td></tr>
         <% } %>
       </tbody>
     </table>
@@ -345,6 +443,11 @@
       <div class="d-flex justify-content-between align-items-start mb-1">
         <div>
           <strong class="text-primary small"><%= o.order_number %></strong>
+          <% if (o.order_type === 'مخزون') { %>
+            <span class="badge bg-success ms-1" style="font-size:.6rem">مخزون</span>
+          <% } else { %>
+            <span class="badge bg-primary ms-1" style="font-size:.6rem">إنتاج</span>
+          <% } %>
           <% if (o.late) { %><span class="badge bg-danger ms-1" style="font-size:.6rem">متأخر</span><% } %>
         </div>
         <span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span>

@@ -214,13 +214,18 @@
 </style>
 
 <%
-  var ITEM_STAGES = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','تم التنفيذ'];
+  // ITEM_STAGES is passed from route — full for production orders, abbreviated for stock orders
 %>
 
 <!-- ── Top bar ── -->
 <div class="prd-topbar">
   <a href="/scanner" class="back-btn" title="العودة">←</a>
   <div class="order-num"><%= order.order_number %></div>
+  <% if (isStock) { %>
+    <span class="status-badge" style="background:#198754;color:#fff">مخزون</span>
+  <% } else { %>
+    <span class="status-badge" style="background:#0d6efd;color:#fff">إنتاج</span>
+  <% } %>
   <span class="status-badge bg-<%= STATUS_COLORS[order.status] || 'secondary' %>">
     <%= order.status %>
   </span>
