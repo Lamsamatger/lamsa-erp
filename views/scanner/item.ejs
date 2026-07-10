@@ -7,7 +7,6 @@
   --navy:#1a2d4a; --gold:#c9a24b;
 }
 
-/* Sticky top bar */
 .prd-topbar {
   background:#1a2d4a; color:#fff; border-radius:14px; margin-bottom:14px;
   padding:12px 14px; display:flex; align-items:center; gap:10px;
@@ -30,11 +29,11 @@
   box-shadow:0 2px 14px rgba(0,0,0,.08); margin-bottom:14px;
 }
 .hero-img {
-  width:100%; height:180px; object-fit:cover; background:#f4f6f9;
-  display:block;
+  width:100%; height:180px; object-fit:cover; background:#f4f6f9; display:block;
 }
 .hero-img-placeholder {
-  width:100%; height:180px; background:linear-gradient(135deg,#1a2d4a 0%,#2d4a6e 100%);
+  width:100%; height:180px;
+  background:linear-gradient(135deg,#1a2d4a 0%,#2d4a6e 100%);
   display:flex; align-items:center; justify-content:center; font-size:4rem;
 }
 .hero-body { padding:16px; }
@@ -75,7 +74,7 @@
   display:flex; align-items:center; gap:7px;
 }
 
-/* Stage track — horizontal pills */
+/* Stage track */
 .stage-track {
   padding:14px 16px; display:flex; gap:0; overflow-x:auto;
   -webkit-overflow-scrolling:touch; scrollbar-width:none;
@@ -86,10 +85,8 @@
   min-width:72px; text-align:center; position:relative;
 }
 .stage-pill:not(:last-child)::after {
-  content:''; position:absolute;
-  top:16px; right:-16px;
-  width:32px; height:2px;
-  background:var(--stage-todo);
+  content:''; position:absolute; top:16px; right:-16px;
+  width:32px; height:2px; background:var(--stage-todo);
 }
 .stage-pill:not(:last-child).done::after  { background:var(--stage-done); }
 .stage-pill:not(:last-child).current::after { background:linear-gradient(90deg,var(--stage-cur),var(--stage-todo)); }
@@ -98,17 +95,14 @@
   background:#fff; display:flex; align-items:center; justify-content:center;
   font-size:.85rem; margin-bottom:5px; transition:all .2s; flex-shrink:0;
 }
-.stage-pill.done   .sp-dot { background:var(--stage-done); border-color:var(--stage-done); color:#fff; }
-.stage-pill.current .sp-dot { background:var(--stage-cur); border-color:var(--stage-cur); color:#fff; box-shadow:0 0 0 4px rgba(201,162,75,.2); }
+.stage-pill.done    .sp-dot { background:var(--stage-done); border-color:var(--stage-done); color:#fff; }
+.stage-pill.current .sp-dot { background:var(--stage-cur);  border-color:var(--stage-cur);  color:#fff; box-shadow:0 0 0 4px rgba(201,162,75,.2); }
 .sp-label { font-size:.62rem; color:#888; line-height:1.2; }
 .stage-pill.done    .sp-label { color:var(--stage-done); font-weight:700; }
-.stage-pill.current .sp-label { color:var(--stage-cur); font-weight:800; }
+.stage-pill.current .sp-label { color:var(--stage-cur);  font-weight:800; }
 
 /* Info grid */
-.info-grid {
-  display:grid; grid-template-columns:1fr 1fr; gap:0;
-  padding:0;
-}
+.info-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; padding:0; }
 .info-row {
   padding:11px 16px; border-bottom:1px solid #f0f0f0;
   display:flex; flex-direction:column; gap:2px;
@@ -117,25 +111,28 @@
 .info-row:last-child, .info-row:nth-last-child(2):nth-child(odd) { border-bottom:none; }
 .info-lbl { font-size:.7rem; color:#aaa; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
 .info-val { font-size:.88rem; font-weight:700; color:#1a2d4a; }
-.info-val.mono { font-family:monospace; font-size:.82rem; }
+.info-val.mono  { font-family:monospace; font-size:.82rem; }
 .info-val.muted { color:#888; font-weight:400; }
 .info-row.full-width { grid-column:1/-1; border-left:none; }
 
 /* Actions */
 .actions-card { padding:16px; }
-.btn-next-stage {
-  width:100%; padding:16px; border-radius:14px; border:none;
-  background:linear-gradient(135deg,#10b981 0%,#059669 100%);
-  color:#fff; font-size:1rem; font-weight:800;
-  font-family:'Tajawal',sans-serif; cursor:pointer;
-  display:flex; flex-direction:column; align-items:center; gap:2px;
-  margin-bottom:12px; transition:opacity .15s;
-  box-shadow:0 4px 14px rgba(16,185,129,.3);
-}
-.btn-next-stage:hover { opacity:.92; }
-.btn-next-stage .stage-name { font-size:.85rem; opacity:.9; font-weight:600; }
-.btn-next-stage.done-state { background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%); box-shadow:none; }
 
+/* Stage-specific action button */
+.btn-stage-action {
+  width:100%; padding:16px; border-radius:14px; border:none;
+  color:#fff; font-size:1rem; font-weight:800; font-family:'Tajawal',sans-serif;
+  cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px;
+  margin-bottom:12px; transition:opacity .15s;
+}
+.btn-stage-action:hover { opacity:.9; }
+.btn-stage-action .sa-sub { font-size:.82rem; opacity:.88; font-weight:600; }
+.btn-stage-action.done-state {
+  background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%);
+  box-shadow:none; cursor:default;
+}
+
+/* Quick actions grid */
 .quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
 .qbtn {
   padding:13px 10px; border-radius:12px; border:1.5px solid #e0e0e0;
@@ -148,8 +145,10 @@
 .qbtn.active { border-color:#c9a24b; background:#fffbf0; color:#92700a; }
 .qbtn.danger { border-color:#fee2e2; background:#fff5f5; color:#dc3545; }
 .qbtn.danger:hover { background:#dc3545; color:#fff; border-color:#dc3545; }
+.qbtn.success { border-color:#d1fae5; background:#f0fdf4; color:#065f46; }
+.qbtn.success:hover { background:#10b981; color:#fff; border-color:#10b981; }
 
-/* Assign modals (inline collapsible) */
+/* Assign / collapsible panels */
 .assign-panel {
   background:#f8fafc; border-radius:12px; border:1.5px solid #e0e8f0;
   padding:14px; margin-bottom:8px; display:none;
@@ -160,17 +159,26 @@
   width:100%; padding:10px 12px; border-radius:10px; border:1.5px solid #d0d8e0;
   font-family:'Tajawal',sans-serif; font-size:.9rem; background:#fff; margin-bottom:8px;
 }
+.assign-textarea {
+  width:100%; padding:10px 12px; border-radius:10px; border:1.5px solid #d0d8e0;
+  font-family:'Tajawal',sans-serif; font-size:.9rem; background:#fff;
+  resize:vertical; min-height:80px; margin-bottom:8px;
+}
 .btn-assign {
   width:100%; padding:11px; border-radius:10px; border:none;
   background:#1a2d4a; color:#fff; font-weight:700; font-size:.88rem;
   font-family:'Tajawal',sans-serif; cursor:pointer; transition:background .15s;
 }
 .btn-assign:hover { background:#0e1d30; }
+.btn-assign.green { background:#10b981; }
+.btn-assign.green:hover { background:#059669; }
 
-/* Manual stage override */
-.override-panel {
-  border-top:1px dashed #ddd; padding-top:12px; margin-top:4px;
-}
+/* QC panel */
+.qc-row { display:flex; gap:8px; }
+.qc-row button { flex:1; }
+
+/* Manual override */
+.override-panel { border-top:1px dashed #ddd; padding-top:12px; margin-top:4px; }
 .override-toggle {
   width:100%; background:none; border:none; color:#888; font-size:.8rem;
   font-family:'Tajawal',sans-serif; cursor:pointer; padding:4px 0;
@@ -191,8 +199,7 @@
   width:36px; height:36px; border-radius:50%;
   background:linear-gradient(135deg,#1a2d4a 0%,#2d4a6e 100%);
   color:#c9a24b; font-size:.95rem; font-weight:900;
-  display:flex; align-items:center; justify-content:center;
-  flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
 .log-body { flex:1; min-width:0; }
 .log-action { font-weight:700; font-size:.85rem; color:#1a2d4a; }
@@ -207,14 +214,29 @@
   padding:32px 16px; text-align:center; color:#aaa; font-size:.88rem;
 }
 
-/* Mobile spacing — keep bottom nav from blocking actions */
-@media (max-width:768px) {
-  .sec-card { margin-bottom:12px; }
-}
+@media (max-width:768px) { .sec-card { margin-bottom:12px; } }
 </style>
 
 <%
-  // ITEM_STAGES is passed from route — full for production orders, abbreviated for stock orders
+  // ── Stage-specific action config ──
+  // Maps order.status → { label, sub, color, nextStatus }
+  const STATUS_ACTION = {
+    'جديد':              { label:'تأكيد التجهيز',       sub:'Confirm Preparation', color:'linear-gradient(135deg,#3b82f6,#1d4ed8)', next:'تجهيز' },
+    'مراجعة':            { label:'إرسال للتجهيز',       sub:'Send to Preparation', color:'linear-gradient(135deg,#3b82f6,#1d4ed8)', next:'تجهيز' },
+    'تجهيز':             isStock
+      ? { label:'جاهز للتغليف',          sub:'Ready for Packaging',   color:'linear-gradient(135deg,#10b981,#059669)', next:'جاهز للتغليف' }
+      : { label:'إرسال للمشغل',           sub:'Send to Workshop',      color:'linear-gradient(135deg,#f59e0b,#d97706)', next:'عند المشغل' },
+    'عند المشغل':        { label:'استلام من المشغل',    sub:'Receive from Workshop',color:'linear-gradient(135deg,#f97316,#ea580c)', next:'مستلم من المشغل' },
+    'مستلم من المشغل':   item.embroidery_name
+      ? { label:'إرسال للتطريز',         sub:'Send to Embroidery',    color:'linear-gradient(135deg,#8b5cf6,#6d28d9)', next:'عند المطرز' }
+      : { label:'جاهز للتغليف',          sub:'Ready for Packaging',   color:'linear-gradient(135deg,#10b981,#059669)', next:'جاهز للتغليف' },
+    'عند المطرز':        { label:'إتمام التطريز',       sub:'Embroidery Complete',  color:'linear-gradient(135deg,#ec4899,#db2777)', next:'جاهز للتغليف' },
+    'جاهز للتغليف':     { label:'بدء التغليف',         sub:'Start Packaging',      color:'linear-gradient(135deg,#0d9488,#0f766e)', next:'في التغليف' },
+    'في التغليف':        { label:'تأكيد التغليف',       sub:'Confirm Packaging',    color:'linear-gradient(135deg,#0d9488,#0f766e)', next:'تم التغليف' },
+    'تم التغليف':        { label:'تأكيد الشحن',         sub:'Confirm Shipment',     color:'linear-gradient(135deg,#2563eb,#1d4ed8)', next:'تم الشحن' },
+    'تم الشحن':          { label:'تأكيد التسليم',       sub:'Confirm Delivery',     color:'linear-gradient(135deg,#10b981,#065f46)', next:'تم التنفيذ' },
+  };
+  const stageAction = STATUS_ACTION[order.status];
 %>
 
 <!-- ── Top bar ── -->
@@ -231,12 +253,12 @@
   </span>
 </div>
 
-<!-- ── Hero: image + name + tags + progress ── -->
+<!-- ── Hero ── -->
 <div class="hero-card">
   <% if (item.image_url && /^https?:\/\//i.test(item.image_url)) { %>
     <img class="hero-img" src="<%= item.image_url %>" alt="<%= item.product_name %>"
-      onerror="this.style.display='none'; document.getElementById('hero-placeholder').style.display='flex'">
-    <div class="hero-img-placeholder" id="hero-placeholder" style="display:none">👗</div>
+      onerror="this.style.display='none'; document.getElementById('hero-ph').style.display='flex'">
+    <div class="hero-img-placeholder" id="hero-ph" style="display:none">👗</div>
   <% } else { %>
     <div class="hero-img-placeholder">👗</div>
   <% } %>
@@ -254,7 +276,7 @@
     <div class="progress-wrap">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <span style="font-size:.78rem;color:#888;font-weight:600">تقدم الإنتاج</span>
-        <span style="font-size:.9rem;font-weight:900;color:<%= progressPct===100 ? '#10b981' : '#c9a24b' %>"><%= progressPct %>%</span>
+        <span style="font-size:.9rem;font-weight:900;color:<%= progressPct===100?'#10b981':'#c9a24b' %>"><%= progressPct %>%</span>
       </div>
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" style="width:<%= progressPct %>%"></div>
@@ -273,8 +295,8 @@
   <div class="sec-title">📊 مراحل الإنتاج</div>
   <div class="stage-track">
     <% ITEM_STAGES.forEach(function(s, i) {
-      var cls = i < curIdx ? 'done' : (i === curIdx ? 'current' : '');
-      var icon = i < curIdx ? '✓' : (i === curIdx ? '●' : (i + 1));
+      var cls  = i < curIdx ? 'done' : (i === curIdx ? 'current' : '');
+      var icon = i < curIdx ? '✓'   : (i === curIdx ? '●' : (i + 1));
     %>
     <div class="stage-pill <%= cls %>">
       <div class="sp-dot"><%= icon %></div>
@@ -344,78 +366,55 @@
   <div class="sec-title">⚡ الإجراءات</div>
   <div class="actions-card">
 
-    <!-- Primary: Advance to next stage -->
-    <% if (nextStage) { %>
-    <form method="POST" action="/scanner/item/<%= encodeURIComponent(item.barcode) %>/stage">
-      <input type="hidden" name="stage" value="<%= nextStage %>">
-      <button type="submit" class="btn-next-stage">
-        <span>⬅ الخطوة التالية</span>
-        <span class="stage-name"><%= nextStage %></span>
+    <!-- Primary: Stage-specific action button -->
+    <% if (stageAction && order.status !== 'تم التنفيذ') { %>
+    <form method="POST" action="/scanner/order/<%= order.id %>/status">
+      <input type="hidden" name="status"  value="<%= stageAction.next %>">
+      <input type="hidden" name="barcode" value="<%= item.barcode %>">
+      <button type="submit" class="btn-stage-action" style="background:<%= stageAction.color %>;box-shadow:0 4px 14px rgba(0,0,0,.18)">
+        <span><%= stageAction.label %></span>
+        <span class="sa-sub"><%= stageAction.sub %></span>
       </button>
     </form>
     <% } else { %>
-    <div class="btn-next-stage done-state" style="cursor:default">
+    <div class="btn-stage-action done-state" style="cursor:default">
       <span>✅ اكتمل الإنتاج</span>
-      <span class="stage-name">تم التنفيذ</span>
+      <span class="sa-sub">Production Complete</span>
     </div>
     <% } %>
 
-    <!-- Quick action buttons -->
+    <!-- Quick action grid — contextually smart -->
     <div class="quick-actions">
 
-      <!-- Assign Workshop -->
+      <!-- Workshop assignment -->
       <button type="button" class="qbtn" onclick="togglePanel('workshop-panel', this)">
         <span class="qi">🏭</span>
         <span>تعيين مشغل</span>
       </button>
 
-      <!-- Assign Embroiderer -->
+      <!-- Embroiderer assignment -->
       <button type="button" class="qbtn" onclick="togglePanel('embroiderer-panel', this)">
         <span class="qi">🧵</span>
         <span>تعيين مطرز</span>
       </button>
 
-      <!-- Send to QC -->
-      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
-        <input type="hidden" name="status" value="مراجعة">
-        <button type="submit" class="qbtn">
-          <span class="qi">🔍</span>
-          <span>مراقبة الجودة</span>
-        </button>
-      </form>
+      <!-- QC — quality check -->
+      <button type="button" class="qbtn" onclick="togglePanel('qc-panel', this)">
+        <span class="qi">🔍</span>
+        <span>فحص الجودة</span>
+      </button>
 
-      <!-- Ready for Packaging -->
-      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
-        <input type="hidden" name="status" value="جاهز للتغليف">
-        <button type="submit" class="qbtn">
-          <span class="qi">📦</span>
-          <span>جاهز للتغليف</span>
-        </button>
-      </form>
-
-      <!-- Received from Workshop -->
-      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
-        <input type="hidden" name="status" value="مستلم من المشغل">
-        <button type="submit" class="qbtn">
-          <span class="qi">📥</span>
-          <span>استلام من المشغل</span>
-        </button>
-      </form>
-
-      <!-- Mark Done -->
-      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
-        <input type="hidden" name="status" value="تم التنفيذ">
-        <button type="submit" class="qbtn danger">
-          <span class="qi">✅</span>
-          <span>تم التنفيذ</span>
-        </button>
-      </form>
+      <!-- Add notes -->
+      <button type="button" class="qbtn" onclick="togglePanel('notes-panel', this)">
+        <span class="qi">📝</span>
+        <span>إضافة ملاحظة</span>
+      </button>
 
     </div>
 
-    <!-- Assign Workshop panel -->
+    <!-- Workshop assignment panel -->
     <div class="assign-panel" id="workshop-panel">
-      <h6>🏭 اختر المشغل</h6>
+      <h6>🏭 تعيين مشغل</h6>
       <form method="POST" action="/scanner/order/<%= order.id %>/workshop">
         <input type="hidden" name="barcode" value="<%= item.barcode %>">
         <select class="assign-select" name="workshop_id" required>
@@ -430,9 +429,9 @@
       </form>
     </div>
 
-    <!-- Assign Embroiderer panel -->
+    <!-- Embroiderer assignment panel -->
     <div class="assign-panel" id="embroiderer-panel">
-      <h6>🧵 اختر المطرز</h6>
+      <h6>🧵 تعيين مطرز</h6>
       <form method="POST" action="/scanner/order/<%= order.id %>/embroiderer">
         <input type="hidden" name="barcode" value="<%= item.barcode %>">
         <select class="assign-select" name="embroiderer_id" required>
@@ -447,7 +446,38 @@
       </form>
     </div>
 
-    <!-- Manual override -->
+    <!-- QC panel: pass / fail -->
+    <div class="assign-panel" id="qc-panel">
+      <h6>🔍 نتيجة فحص الجودة</h6>
+      <p style="font-size:.82rem;color:#666;margin-bottom:10px">
+        اجتاز الفحص → ينتقل لجاهز للتغليف · رُفض → يعود لمرحلة المراجعة
+      </p>
+      <div class="qc-row">
+        <form method="POST" action="/scanner/order/<%= order.id %>/status" style="flex:1">
+          <input type="hidden" name="status"  value="جاهز للتغليف">
+          <input type="hidden" name="barcode" value="<%= item.barcode %>">
+          <button type="submit" class="btn-assign green">✅ اجتاز الفحص</button>
+        </form>
+        <form method="POST" action="/scanner/order/<%= order.id %>/status" style="flex:1;margin-right:8px">
+          <input type="hidden" name="status"  value="مراجعة">
+          <input type="hidden" name="barcode" value="<%= item.barcode %>">
+          <button type="submit" class="btn-assign" style="background:#dc3545">❌ رُفض — مراجعة</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Notes panel -->
+    <div class="assign-panel" id="notes-panel">
+      <h6>📝 إضافة ملاحظة</h6>
+      <form method="POST" action="/scanner/order/<%= order.id %>/notes">
+        <input type="hidden" name="barcode" value="<%= item.barcode %>">
+        <textarea class="assign-textarea" name="note"
+          placeholder="أدخل ملاحظة الإنتاج هنا…" required></textarea>
+        <button type="submit" class="btn-assign">حفظ الملاحظة</button>
+      </form>
+    </div>
+
+    <!-- Manual stage override -->
     <div class="override-panel">
       <button type="button" class="override-toggle" onclick="toggleOverride()">
         ⚙️ تغيير يدوي للمرحلة <span id="override-arrow">▾</span>
@@ -490,7 +520,7 @@
           <% } %>
           <div class="log-meta">
             <span>👤 <%= l.user_name || 'غير معروف' %></span>
-            <% if (l.user_role) { %><span>· <%= l.user_role %></span><% } %>
+            <% if (l.user_role) { %><span>· <%= ROLES[l.user_role] || l.user_role %></span><% } %>
             <span>🕐 <%= new Date(l.at).toLocaleDateString('ar-SA', {calendar:'gregory', year:'numeric', month:'short', day:'numeric'}) %></span>
             <span><%= new Date(l.at).toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'}) %></span>
           </div>
@@ -509,14 +539,13 @@
 
 <script>
 function togglePanel(id, btn) {
-  const panel = document.getElementById(id);
+  const panel  = document.getElementById(id);
   const isOpen = panel.classList.contains('open');
-  // Close all panels first
   document.querySelectorAll('.assign-panel').forEach(p => p.classList.remove('open'));
   document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
   if (!isOpen) {
     panel.classList.add('open');
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
   }
 }
@@ -524,7 +553,7 @@ function togglePanel(id, btn) {
 function toggleOverride() {
   const inner = document.getElementById('override-inner');
   const arrow = document.getElementById('override-arrow');
-  const open = inner.classList.toggle('open');
+  const open  = inner.classList.toggle('open');
   arrow.textContent = open ? '▴' : '▾';
 }
 </script>

@@ -5,10 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>بطاقات التجهيز | لمسة أزيائي</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap">
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <style>
-/* ── Base ── */
 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
 
@@ -47,8 +45,7 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
 /* ── Page wrapper for screen ── */
 .print-page-wrap {
   background:#fff; border-radius:10px; box-shadow:0 2px 12px rgba(0,0,0,.1);
-  margin:0 auto 24px; padding:10px;
-  max-width:860px;
+  margin:0 auto 24px; padding:10px; max-width:880px;
 }
 .print-page-label {
   text-align:center; font-size:.72rem; color:#aaa; font-weight:600;
@@ -56,79 +53,96 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
 }
 
 /* ── Cards grid (screen) ── */
-.print-grid {
-  display:grid;
-  gap:6px;
-}
+.print-grid { display:grid; gap:6px; }
 .layout-12 .print-grid { grid-template-columns:repeat(3,1fr); }
 .layout-16 .print-grid { grid-template-columns:repeat(4,1fr); }
 
 /* ── Single prep card ── */
 .prep-card {
   border:1.5px solid #ccc; border-radius:8px; overflow:hidden;
-  background:#fff; display:flex; flex-direction:column;
-  font-size:.78rem;
+  background:#fff; display:flex; flex-direction:column; font-size:.78rem;
 }
 
 /* Card header */
 .pc-header {
   background:#1a2d4a; color:#fff; padding:5px 8px;
-  display:flex; justify-content:space-between; align-items:center; gap:4px;
-  flex-shrink:0;
+  display:flex; justify-content:space-between; align-items:center; gap:4px; flex-shrink:0;
 }
 .pc-order { font-family:monospace; font-weight:700; font-size:.82rem; letter-spacing:.3px; }
-.pc-status {
-  font-size:.62rem; padding:1px 6px; border-radius:20px; font-weight:700;
-  background:rgba(255,255,255,.15); color:#fff; white-space:nowrap;
+.pc-badges { display:flex; gap:3px; align-items:center; flex-wrap:wrap; }
+.pc-badge {
+  font-size:.58rem; padding:1px 5px; border-radius:10px; font-weight:700; white-space:nowrap;
+}
+.pc-badge.type-prod  { background:#0d6efd; color:#fff; }
+.pc-badge.type-stock { background:#198754; color:#fff; }
+.pc-badge.status     { background:rgba(255,255,255,.18); color:#fff; }
+
+/* Stage strip */
+.pc-stage-strip {
+  background:#f0f4ff; border-bottom:1px solid #e0e8f5;
+  padding:3px 8px; font-size:.65rem; font-weight:700; color:#1a2d4a;
+  display:flex; align-items:center; gap:4px; flex-shrink:0;
+}
+.pc-stage-dot {
+  width:7px; height:7px; border-radius:50%; background:#c9a24b; flex-shrink:0;
 }
 
 /* Card body */
 .pc-body { display:flex; gap:6px; padding:6px; align-items:flex-start; flex-shrink:0; }
 .pc-img {
-  width:48px; height:48px; flex-shrink:0; border-radius:5px;
+  width:52px; height:52px; flex-shrink:0; border-radius:5px;
   background:#f4f6f9; border:1px solid #eee; overflow:hidden;
-  display:flex; align-items:center; justify-content:center; font-size:1.5rem;
+  display:flex; align-items:center; justify-content:center; font-size:1.6rem;
 }
 .pc-img img { width:100%; height:100%; object-fit:cover; }
 .pc-info { flex:1; min-width:0; }
-.pc-name { font-weight:700; font-size:.8rem; color:#1a2d4a; line-height:1.3; margin-bottom:3px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.pc-name {
+  font-weight:700; font-size:.8rem; color:#1a2d4a; line-height:1.3; margin-bottom:3px;
+  overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
 .pc-chips { display:flex; flex-wrap:wrap; gap:2px; }
 .pc-chip {
   background:#f0f4ff; color:#2d5096; border-radius:4px;
   padding:0 5px; font-size:.65rem; font-weight:600; line-height:1.6;
 }
-.pc-chip.qty { background:#e8f5e9; color:#1b5e20; }
+.pc-chip.qty   { background:#e8f5e9; color:#1b5e20; }
+.pc-chip.total { background:#fef3c7; color:#92400e; }
 
 /* Details rows */
 .pc-rows { padding:0 6px 4px; flex-shrink:0; }
 .pc-row {
   display:flex; justify-content:space-between; align-items:center;
-  font-size:.72rem; padding:1.5px 0; border-bottom:1px solid #f5f5f5;
+  font-size:.7rem; padding:1.5px 0; border-bottom:1px solid #f5f5f5;
 }
 .pc-row:last-child { border-bottom:none; }
 .pc-lbl { color:#999; }
 .pc-val { font-weight:600; color:#333; text-align:left; }
 
-/* QR + Barcode zone */
-.pc-code-zone {
-  padding:4px 6px; display:flex; flex-direction:column; align-items:center;
-  gap:2px; flex-shrink:0;
+/* QR zone — centrepiece of the card */
+.pc-qr-zone {
+  padding:6px 6px 2px; display:flex; flex-direction:column;
+  align-items:center; gap:2px; flex-shrink:0;
 }
-.pc-qr canvas, .pc-qr img { display:block; }
-.pc-bc svg { max-width:100%; }
-.pc-code-label { font-family:monospace; font-size:.55rem; color:#888; text-align:center; }
+.pc-qr-wrap {
+  background:#fff; border:1.5px solid #e0e0e0; border-radius:6px;
+  padding:4px; display:inline-flex; align-items:center; justify-content:center;
+}
+.pc-qr-label {
+  font-family:monospace; font-size:.52rem; color:#888;
+  text-align:center; word-break:break-all; max-width:100%;
+}
 
 /* Notes */
 .pc-notes {
   margin:0 6px 4px; background:#fffbf0; border:1px dashed #e8c96a;
-  border-radius:5px; padding:3px 6px; font-size:.68rem; color:#6b5000; flex-shrink:0;
+  border-radius:5px; padding:3px 6px; font-size:.67rem; color:#6b5000; flex-shrink:0;
 }
 
 /* Checklist */
 .pc-checklist { margin-top:auto; border-top:1px dashed #e0e0e0; padding:4px 6px 5px; }
 .pc-checklist .cl-item {
   display:flex; align-items:center; gap:4px;
-  font-size:.66rem; color:#555; margin-bottom:2px;
+  font-size:.64rem; color:#555; margin-bottom:2px;
 }
 .pc-checklist .cl-box {
   width:11px; height:11px; border:1.5px solid #999; border-radius:2px;
@@ -137,62 +151,59 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
 
 /* ── PRINT STYLES ── */
 @media print {
-  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  *, *::before, *::after { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   @page { size:A4 portrait; margin:5mm; }
 
   body   { background:white; }
   .no-print { display:none !important; }
-
   .screen-preview { padding:0; }
   .print-page-label { display:none; }
 
   .print-page-wrap {
     background:transparent; box-shadow:none; border-radius:0;
     padding:0; margin:0; max-width:none;
-    /* page break between page groups */
     break-after:page; page-break-after:always;
   }
   .print-page-wrap:last-child { break-after:avoid; page-break-after:avoid; }
 
-  /* ── 12 per page: 3 × 4 on A4 (print area 200mm × 287mm, gap 2mm) ── */
+  /* 12 per page: 3 × 4 */
   .layout-12 .print-grid {
     display:grid;
-    grid-template-columns:repeat(3, 65.3mm);
+    grid-template-columns:repeat(3, 65mm);
     grid-template-rows:repeat(4, 70mm);
-    gap:2mm;
-    width:200mm;
+    gap:2mm; width:200mm;
   }
-
-  /* ── 16 per page: 4 × 4 on A4 ── */
+  /* 16 per page: 4 × 4 */
   .layout-16 .print-grid {
     display:grid;
     grid-template-columns:repeat(4, 48mm);
     grid-template-rows:repeat(4, 70mm);
-    gap:2mm;
-    width:200mm;
+    gap:2mm; width:200mm;
   }
 
   .prep-card {
-    border:0.5pt solid #888;
-    border-radius:2mm;
-    overflow:hidden;
-    break-inside:avoid;
-    page-break-inside:avoid;
+    border:0.5pt solid #888; border-radius:2mm;
+    overflow:hidden; break-inside:avoid; page-break-inside:avoid;
   }
 
-  /* In 16/page mode hide product image to save space */
-  .layout-16 .pc-body { padding:4px 5px; }
-  .layout-16 .pc-img { width:36px; height:36px; font-size:1.1rem; }
-  .layout-16 .pc-name { font-size:.72rem; }
-  .layout-16 .pc-chip { font-size:.58rem; }
-  .layout-16 .pc-row  { font-size:.65rem; }
-  .layout-16 .pc-notes { font-size:.6rem; padding:2px 4px; }
+  /* In 16/page mode use tighter layout */
+  .layout-16 .pc-body   { padding:3px 4px; }
+  .layout-16 .pc-img    { width:36px; height:36px; font-size:1.1rem; }
+  .layout-16 .pc-name   { font-size:.7rem; }
+  .layout-16 .pc-chip   { font-size:.56rem; }
+  .layout-16 .pc-row    { font-size:.62rem; }
+  .layout-16 .pc-notes  { font-size:.58rem; padding:2px 4px; }
   .layout-16 .pc-checklist .cl-item { font-size:.58rem; margin-bottom:1px; }
+  .layout-16 .pc-qr-zone { padding:4px 4px 2px; }
 
-  /* colours in print */
-  .pc-header { background:#1a2d4a !important; color:#fff !important; }
-  .pc-chip   { background:#eef2ff !important; color:#2d5096 !important; }
-  .pc-chip.qty { background:#e8f5e9 !important; color:#1b5e20 !important; }
+  /* Force colours in print */
+  .pc-header         { background:#1a2d4a !important; color:#fff !important; }
+  .pc-stage-strip    { background:#f0f4ff !important; }
+  .pc-badge.type-prod  { background:#0d6efd !important; }
+  .pc-badge.type-stock { background:#198754 !important; }
+  .pc-chip           { background:#eef2ff !important; color:#2d5096 !important; }
+  .pc-chip.qty       { background:#e8f5e9 !important; color:#1b5e20 !important; }
+  .pc-chip.total     { background:#fef3c7 !important; color:#92400e !important; }
 }
 </style>
 </head>
@@ -201,19 +212,15 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
 <%
   let totalCards = 0;
   orders.forEach(o => { totalCards += o.items.length; });
-  const cpp = parseInt(cardsPerPage) === 16 ? 16 : 12;
-  const cols = cpp === 16 ? 4 : 3;
-  const rows = 4;
+  const cpp  = parseInt(cardsPerPage) === 16 ? 16 : 12;
 
-  // flatten all items into a single array
+  // Flatten all items into pages
   const allCards = [];
   orders.forEach(function(order) {
     order.items.forEach(function(item) {
       allCards.push({ order, item });
     });
   });
-
-  // chunk into pages
   const pages = [];
   for (let i = 0; i < allCards.length; i += cpp) {
     pages.push(allCards.slice(i, i + cpp));
@@ -251,22 +258,30 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
     <% page.forEach(function(c) {
       const order = c.order;
       const item  = c.item;
-      const statusColors = {
-        'جديد':'#64748b','مراجعة':'#0ea5e9','تجهيز':'#3b82f6',
-        'عند المشغل':'#f59e0b','مستلم من المشغل':'#f97316',
-        'عند المطرز':'#8b5cf6','جاهز للتغليف':'#10b981',
-        'تم التنفيذ':'#1a2d4a','ملغي':'#ef4444'
-      };
+      const isStock = (order.order_type || 'إنتاج') === 'مخزون';
+      const orderTotalPieces = order.totalPieces || order.items.reduce((s,i)=>s+(Number(i.qty)||1),0);
+      const qrUrl = baseUrl + '/scanner/item/' + encodeURIComponent(item.barcode);
     %>
     <div class="prep-card">
 
-      <!-- Header -->
+      <!-- Header: order number + type badge + status -->
       <div class="pc-header">
         <span class="pc-order"><%= order.order_number %></span>
-        <span class="pc-status"><%= order.status %></span>
+        <div class="pc-badges">
+          <span class="pc-badge <%= isStock ? 'type-stock' : 'type-prod' %>">
+            <%= isStock ? 'مخزون' : 'إنتاج' %>
+          </span>
+          <span class="pc-badge status"><%= order.status %></span>
+        </div>
       </div>
 
-      <!-- Body: image + info -->
+      <!-- Current stage strip -->
+      <div class="pc-stage-strip">
+        <span class="pc-stage-dot"></span>
+        المرحلة: <%= item.stage || 'تجهيز' %>
+      </div>
+
+      <!-- Body: image + product info -->
       <div class="pc-body">
         <div class="pc-img">
           <% if (item.image_url && /^https?:\/\//i.test(item.image_url)) { %>
@@ -279,32 +294,48 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
           <div class="pc-chips">
             <% if (item.size)  { %><span class="pc-chip">📐 <%= item.size %></span><% } %>
             <% if (item.color) { %><span class="pc-chip">🎨 <%= item.color %></span><% } %>
-            <span class="pc-chip qty">× <%= item.qty %></span>
+            <span class="pc-chip qty">الكمية: <%= item.qty %></span>
+            <span class="pc-chip total">الطلب: <%= orderTotalPieces %> ق</span>
           </div>
         </div>
       </div>
 
-      <!-- Detail rows -->
+      <!-- Detail rows: SKU, size, color, qty, total pieces -->
       <div class="pc-rows">
-        <div class="pc-row"><span class="pc-lbl">الباركود</span><span class="pc-val" dir="ltr" style="font-family:monospace;font-size:.62rem"><%= item.barcode %></span></div>
-        <div class="pc-row"><span class="pc-lbl">المرحلة</span><span class="pc-val"><%= item.stage||'تجهيز' %></span></div>
-        <div class="pc-row"><span class="pc-lbl">المقاس</span><span class="pc-val"><%= item.size||'—' %></span></div>
-        <div class="pc-row"><span class="pc-lbl">اللون</span><span class="pc-val"><%= item.color||'—' %></span></div>
-        <div class="pc-row"><span class="pc-lbl">الكمية</span><span class="pc-val"><strong><%= item.qty %></strong></span></div>
-      </div>
-
-      <!-- QR code (canvas) -->
-      <div class="pc-code-zone">
-        <div class="pc-qr">
-          <canvas class="qr-canvas" data-code="<%= item.barcode %>"></canvas>
+        <div class="pc-row">
+          <span class="pc-lbl">SKU / باركود</span>
+          <span class="pc-val" dir="ltr" style="font-family:monospace;font-size:.6rem"><%= item.barcode %></span>
         </div>
-        <div class="pc-code-label"><%= item.barcode %></div>
+        <div class="pc-row">
+          <span class="pc-lbl">المقاس</span>
+          <span class="pc-val"><%= item.size || '—' %></span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-lbl">اللون</span>
+          <span class="pc-val"><%= item.color || '—' %></span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-lbl">الكمية</span>
+          <span class="pc-val"><strong><%= item.qty %></strong> قطعة</span>
+        </div>
+        <div class="pc-row">
+          <span class="pc-lbl">عدد القطع (الطلب)</span>
+          <span class="pc-val"><strong><%= orderTotalPieces %></strong> قطعة</span>
+        </div>
       </div>
 
-      <!-- Notes -->
+      <!-- QR Code — encodes full scanner URL -->
+      <div class="pc-qr-zone">
+        <div class="pc-qr-wrap">
+          <canvas class="qr-canvas" data-url="<%= qrUrl %>"></canvas>
+        </div>
+        <div class="pc-qr-label"><%= item.barcode %></div>
+      </div>
+
+      <!-- Embroidery & production notes -->
       <% if (item.notes || item.embroidery_name) { %>
       <div class="pc-notes">
-        <% if (item.embroidery_name) { %>🧵 <%= item.embroidery_name %><br><% } %>
+        <% if (item.embroidery_name) { %>🧵 تطريز: <%= item.embroidery_name %><br><% } %>
         <% if (item.notes) { %>📝 <%= item.notes %><% } %>
       </div>
       <% } %>
@@ -315,7 +346,7 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
         <div class="cl-item"><span class="cl-box"></span> القص والتحضير</div>
         <div class="cl-item"><span class="cl-box"></span> الخياطة والتجميع</div>
         <% if (item.embroidery_name) { %>
-        <div class="cl-item"><span class="cl-box"></span> التطريز</div>
+        <div class="cl-item"><span class="cl-box"></span> التطريز ✓</div>
         <% } %>
         <div class="cl-item"><span class="cl-box"></span> مراجعة الجودة</div>
         <div class="cl-item"><span class="cl-box"></span> جاهز للتسليم ✓</div>
@@ -331,25 +362,25 @@ body { font-family:'Tajawal',sans-serif; background:#f0f2f5; direction:rtl; }
 <% } %>
 
 <script>
-// ── Generate QR codes ──
+// Generate QR codes (full scanner URL per card)
 document.querySelectorAll('canvas.qr-canvas').forEach(function(canvas) {
-  const code = canvas.getAttribute('data-code');
-  const wrap  = canvas.closest('.print-grid');
-  const is16  = document.getElementById('main-wrap') && document.getElementById('main-wrap').classList.contains('layout-16');
-  const size  = is16 ? 60 : 72;
-  QRCode.toCanvas(canvas, code, { width:size, margin:1, errorCorrectionLevel:'M' }, function(){});
+  const url   = canvas.getAttribute('data-url');
+  const wrap  = document.getElementById('main-wrap');
+  const is16  = wrap && wrap.classList.contains('layout-16');
+  const size  = is16 ? 64 : 80;
+  QRCode.toCanvas(canvas, url, { width:size, margin:1, errorCorrectionLevel:'M' }, function(){});
 });
 
-// ── Layout toggle (client-side, no round-trip) ──
+// Layout toggle (client-side)
 function setLayout(n) {
   const url = new URL(window.location.href);
   url.searchParams.set('layout', n);
   window.location.href = url.toString();
 }
 
-// ── Auto-print ──
+// Auto-print if requested
 if (new URLSearchParams(window.location.search).get('autoprint') === '1') {
-  setTimeout(() => window.print(), 1000);
+  setTimeout(() => window.print(), 1200);
 }
 </script>
 </body>

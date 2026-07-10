@@ -18,6 +18,16 @@ description: Order-type classification, prep tabs/actions, print card privacy, s
 - **Embroidery duplicate check** unified to `j.auto_queued && !j.embroiderer_id` across both status-change routes (was inconsistent).
 - **Scanner embroiderer assignment** (`POST /scanner/order/:orderId/embroiderer`) updates existing auto-queued job when present; only inserts new job if none exists.
 
+## Universal Prep Card + Scanner (latest session)
+- QR code encodes full scanner URL: `APP_BASE_URL || (req.protocol + '://' + req.hostname)` + `/scanner/item/{barcode}` — use `APP_BASE_URL` env var in production
+- `baseUrl` passed to `print_cards.ejs` from both POST /prep/print and GET /prep/print-all
+- `totalPieces` per order computed as `Math.max(0, Number(i.qty) || 0)` sum — passed on order object
+- Cards show: order_type badge (type-prod/type-stock), pc-stage-strip with current stage, SKU, total pieces row, QR (full URL), embroidery+notes, checklist
+- Scanner stage-specific action: `STATUS_ACTION` map keyed by `order.status` → { label, sub, color, next }. Guarded by `if (stageAction...)` for unlisted statuses (تم التنفيذ, ملغي)
+- `POST /scanner/order/:orderId/notes` — note capped at 500 chars, logged to activity log
+- QC panel: pass → جاهز للتغليف, fail → مراجعة
+- History log uses `ROLES[l.user_role]` for Arabic role names
+
 ## Post-merge setup
 - Script: `scripts/post-merge.sh` — runs `npm install --prefer-offline`
 - Configured via setPostMergeConfig with 60s timeout

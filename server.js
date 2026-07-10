@@ -567,33 +567,41 @@ app.post('/prep/print', requireAuth, requireSection('prep'), (req, res) => {
   if (!ids) ids = [];
   if (!Array.isArray(ids)) ids = [ids];
   const cardsPerPage = parseInt(req.body.layout) === 16 ? 16 : 12;
+  const baseUrl = process.env.APP_BASE_URL || (req.protocol + '://' + req.hostname);
   const orders = db.orders
     .filter(o => ids.includes(o.id))
     .sort((a, b) => a.order_number.localeCompare(b.order_number))
-    .map(order => ({
-      ...stripCustomerFields(order),
-      items: order.items.map(it => {
-        const product = db.products.find(p => p.id === it.product_id);
-        return { ...it, image_url: product ? product.image_url : '' };
-      })
-    }));
-  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage });
+    .map(order => {
+      const totalPieces = order.items.reduce((s, i) => s + Math.max(0, Number(i.qty) || 0), 0);
+      return {
+        ...stripCustomerFields(order), totalPieces,
+        items: order.items.map(it => {
+          const product = db.products.find(p => p.id === it.product_id);
+          return { ...it, image_url: product ? product.image_url : '' };
+        })
+      };
+    });
+  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage, baseUrl });
 });
 
 app.get('/prep/print-all', requireAuth, requireSection('prep'), (req, res) => {
   const db = load();
   const cardsPerPage = parseInt(req.query.layout) === 16 ? 16 : 12;
+  const baseUrl = process.env.APP_BASE_URL || (req.protocol + '://' + req.hostname);
   const orders = db.orders
     .filter(o => !['تم التنفيذ', 'ملغي'].includes(o.status))
     .sort((a, b) => a.order_number.localeCompare(b.order_number))
-    .map(order => ({
-      ...stripCustomerFields(order),
-      items: order.items.map(it => {
-        const product = db.products.find(p => p.id === it.product_id);
-        return { ...it, image_url: product ? product.image_url : '' };
-      })
-    }));
-  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage });
+    .map(order => {
+      const totalPieces = order.items.reduce((s, i) => s + Math.max(0, Number(i.qty) || 0), 0);
+      return {
+        ...stripCustomerFields(order), totalPieces,
+        items: order.items.map(it => {
+          const product = db.products.find(p => p.id === it.product_id);
+          return { ...it, image_url: product ? product.image_url : '' };
+        })
+      };
+    });
+  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage, baseUrl });
 });
 
 // ---------- ITEM STAGE UPDATE ----------
@@ -859,6 +867,25 @@ app.post('/scanner/order/:orderId/embroiderer', requireAuth, requireSection('sca
 
   const redirectBarcode = (barcode || '').trim();
   if (redirectBarcode) return res.redirect('/scanner/item/' + encodeURIComponent(redirectBarcode));
+  res.redirect('/scanner');
+});
+
+// POST: add a note to order activity log (scanner)
+app.post('/scanner/order/:orderId/notes', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.orderId);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const noteRaw = (req.body.note || '').trim();
+  const note    = noteRaw.slice(0, 500); // cap at 500 chars
+  const barcode = (req.body.barcode || '').trim();
+  if (!note) {
+    const redir = barcode ? '/scanner/item/' + encodeURIComponent(barcode) : '/scanner';
+    return res.redirect(redir);
+  }
+  log(db, req.session.user.id, 'ملاحظة إنتاج', `${order.order_number}: ${note}`,
+    { module: 'scanner', type: 'note' });
+  save(db);
+  if (barcode) return res.redirect('/scanner/item/' + encodeURIComponent(barcode));
   res.redirect('/scanner');
 });
 
