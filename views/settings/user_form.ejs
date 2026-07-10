@@ -1,0 +1,233 @@
+<%- include('../partials/head', {title: title}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --purple:#8b5cf6; }
+
+.form-panel { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:20px; overflow:hidden; }
+.form-panel-hd { padding:14px 18px; border-bottom:1px solid #f0f0f0; font-weight:800; font-size:.9rem; color:var(--navy); }
+.form-panel-body { padding:20px 22px; }
+
+.perm-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:8px; margin-top:10px; }
+.perm-item { background:#f8fafc; border-radius:10px; padding:10px 12px; font-size:.8rem; }
+.perm-item .pi-label { color:#888; font-size:.72rem; }
+.perm-ok  { color:var(--green); font-weight:700; }
+.perm-no  { color:#d1d5db; font-weight:700; }
+
+.act-log-row { display:flex; gap:8px; padding:7px 0; border-bottom:1px solid #f5f5f5; font-size:.8rem; }
+.act-log-row:last-child { border:0; }
+.act-time { color:#aaa; min-width:120px; flex-shrink:0; font-size:.73rem; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0"><%= editUser ? '✏️ تعديل: ' + editUser.name : '➕ مستخدم جديد' %></h1>
+  <a href="/settings/users" class="btn btn-outline-secondary btn-sm">← قائمة المستخدمين</a>
+</div>
+
+<% if (error) { %>
+<div class="alert alert-danger" style="font-size:.85rem">⛔ <%= error %></div>
+<% } %>
+<% if (success) { %>
+<div class="alert alert-success" style="font-size:.85rem">✅ <%= success %></div>
+<% } %>
+
+<div class="row g-3">
+  <!-- Main form -->
+  <div class="col-12 col-lg-7">
+
+    <div class="form-panel">
+      <div class="form-panel-hd">👤 بيانات الموظف</div>
+      <div class="form-panel-body">
+        <form method="POST" action="/settings/users/<%= editUser ? editUser.id + '/edit' : 'new' %>">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label fw-bold" style="font-size:.85rem">الاسم الكامل <span class="text-danger">*</span></label>
+              <input class="form-control" name="name" value="<%= editUser ? editUser.name : '' %>" placeholder="اسم الموظف" required>
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-bold" style="font-size:.85rem">اسم المستخدم <span class="text-danger">*</span></label>
+              <input class="form-control" name="username" value="<%= editUser ? editUser.username : '' %>"
+                placeholder="للتسجيل في النظام" <%=editUser?'readonly':''%> required>
+              <% if (editUser) { %><div class="form-text">لا يمكن تغيير اسم المستخدم</div><% } %>
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-bold" style="font-size:.85rem">رقم الجوال</label>
+              <input class="form-control" name="phone" value="<%= editUser ? (editUser.phone||'') : '' %>" placeholder="05xxxxxxxx">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-bold" style="font-size:.85rem">الدور الوظيفي <span class="text-danger">*</span></label>
+              <select class="form-select" name="role" id="roleSelect" required onchange="updatePerms(this.value)">
+                <option value="">— اختر الدور —</option>
+                <% Object.entries(ROLES).forEach(function([k,v]){ %>
+                <option value="<%= k %>" <%= (editUser && editUser.role===k) ? 'selected' : '' %>><%= v %></option>
+                <% }); %>
+              </select>
+            </div>
+            <% if (!editUser) { %>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-bold" style="font-size:.85rem">كلمة المرور <span class="text-danger">*</span></label>
+              <input class="form-control" type="password" name="password" placeholder="6 أحرف على الأقل" required minlength="6">
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-bold" style="font-size:.85rem">تأكيد كلمة المرور</label>
+              <input class="form-control" type="password" name="confirm" placeholder="أعد كتابة كلمة المرور">
+            </div>
+            <% } %>
+          </div>
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-sm px-4" style="background:var(--navy);color:#fff;font-weight:700">
+              <%= editUser ? '💾 حفظ التعديلات' : '➕ إضافة المستخدم' %>
+            </button>
+            <a href="/settings/users" class="btn btn-sm btn-outline-secondary">إلغاء</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <% if (editUser) { %>
+    <!-- Change password -->
+    <div class="form-panel">
+      <div class="form-panel-hd">🔑 تغيير كلمة المرور</div>
+      <div class="form-panel-body">
+        <form method="POST" action="/settings/users/<%= editUser.id %>/password">
+          <div class="row g-3">
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-bold" style="font-size:.85rem">كلمة المرور الجديدة</label>
+              <input class="form-control" type="password" name="password" placeholder="6 أحرف على الأقل" minlength="6" required>
+            </div>
+            <div class="col-12 col-sm-6">
+              <label class="form-label fw-bold" style="font-size:.85rem">تأكيد كلمة المرور</label>
+              <input class="form-control" type="password" name="confirm" placeholder="أعد كتابة كلمة المرور" required>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary mt-3">🔑 تغيير كلمة المرور</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <% if (editUser.id !== user.id) { %>
+    <div class="form-panel" style="border-top:3px solid var(--red)">
+      <div class="form-panel-hd" style="color:var(--red)">⚠️ منطقة الخطر</div>
+      <div class="form-panel-body">
+        <div class="d-flex gap-3 flex-wrap align-items-center">
+          <div style="font-size:.85rem;color:#666">
+            <% if (editUser.active !== false) { %>
+            تعطيل الحساب يمنع الموظف من تسجيل الدخول مؤقتاً.
+            <% } else { %>
+            الحساب معطل حالياً — الموظف لا يستطيع الدخول.
+            <% } %>
+          </div>
+          <form method="POST" action="/settings/users/<%= editUser.id %>/toggle" class="m-0">
+            <button class="btn btn-sm btn-outline-<%=editUser.active!==false?'warning':'success'%>">
+              <%= editUser.active !== false ? '🚫 تعطيل الحساب' : '✅ تفعيل الحساب' %>
+            </button>
+          </form>
+          <% if (user.role === 'admin') { %>
+          <form method="POST" action="/settings/users/<%= editUser.id %>/delete" class="m-0"
+                onsubmit="return confirm('هل أنت متأكد من حذف المستخدم <%= editUser.name %>؟ لا يمكن التراجع.')">
+            <button class="btn btn-sm btn-outline-danger">🗑️ حذف المستخدم</button>
+          </form>
+          <% } %>
+        </div>
+      </div>
+    </div>
+    <% } %>
+    <% } %>
+
+  </div>
+
+  <!-- Sidebar: role permissions + activity -->
+  <div class="col-12 col-lg-5">
+
+    <!-- Permissions for selected role -->
+    <div class="form-panel">
+      <div class="form-panel-hd">🔐 صلاحيات الدور المحدد</div>
+      <div class="form-panel-body">
+        <div id="permDisplay">
+          <% var curRole = editUser ? editUser.role : ''; %>
+          <% var curPerms = curRole ? (ROLE_PERMISSIONS[curRole] || {}) : {}; %>
+          <% if (!curRole) { %>
+          <p class="text-muted" style="font-size:.83rem">اختر الدور لعرض صلاحياته</p>
+          <% } else { %>
+          <div class="perm-grid">
+            <% var permLabels = { view:'عرض البيانات', add:'إضافة بيانات', edit:'تعديل بيانات', delete:'حذف بيانات', changeStatus:'تغيير حالة الطلبات', reports:'الوصول للتقارير', manageInventory:'إدارة المخزون', manageUsers:'إدارة المستخدمين' }; %>
+            <% Object.entries(permLabels).forEach(function([k,lbl]){ %>
+            <div class="perm-item">
+              <div class="<%=curPerms[k]?'perm-ok':'perm-no'%>"><%=curPerms[k]?'✓':'✗'%></div>
+              <div class="pi-label"><%= lbl %></div>
+            </div>
+            <% }); %>
+            <div class="perm-item" style="grid-column:1/-1">
+              <div class="<%=curPerms.hideCustomer?'perm-ok':'perm-no'%>">
+                <%= curPerms.hideCustomer ? '🔒 مفعّل' : '👁️ لا يُطبَّق' %>
+              </div>
+              <div class="pi-label">إخفاء بيانات العميل</div>
+            </div>
+          </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <% if (editUser && logs && logs.length > 0) { %>
+    <!-- Recent activity -->
+    <div class="form-panel">
+      <div class="form-panel-hd">📋 آخر نشاط للموظف</div>
+      <div class="form-panel-body" style="max-height:300px;overflow-y:auto">
+        <% logs.forEach(function(l) { %>
+        <div class="act-log-row">
+          <div class="act-time"><%= l.at ? l.at.slice(0,16).replace('T',' ') : '' %></div>
+          <div>
+            <div style="font-weight:700;color:var(--navy)"><%= l.action %></div>
+            <% if (l.details) { %><div style="color:#888;font-size:.73rem"><%= l.details %></div><% } %>
+          </div>
+        </div>
+        <% }); %>
+        <a href="/settings/activity?user_id=<%= editUser.id %>" class="btn btn-outline-secondary btn-sm mt-2 w-100" style="font-size:.78rem">
+          عرض كل النشاط →
+        </a>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (editUser && (!logs || logs.length === 0)) { %>
+    <div class="form-panel">
+      <div class="form-panel-hd">📋 سجل النشاط</div>
+      <div class="form-panel-body text-center text-muted py-3" style="font-size:.85rem">
+        لا يوجد نشاط مسجل بعد
+      </div>
+    </div>
+    <% } %>
+
+  </div>
+</div>
+
+<script>
+const ROLE_PERMISSIONS = <%- JSON.stringify(ROLE_PERMISSIONS) %>;
+const PERM_LABELS = {
+  view:'عرض البيانات', add:'إضافة بيانات', edit:'تعديل بيانات',
+  delete:'حذف بيانات', changeStatus:'تغيير حالة الطلبات',
+  reports:'الوصول للتقارير', manageInventory:'إدارة المخزون',
+  manageUsers:'إدارة المستخدمين', hideCustomer:'إخفاء بيانات العميل'
+};
+function updatePerms(role) {
+  const p = ROLE_PERMISSIONS[role] || {};
+  const container = document.getElementById('permDisplay');
+  if (!role) { container.innerHTML = '<p class="text-muted" style="font-size:.83rem">اختر الدور لعرض صلاحياته</p>'; return; }
+  let html = '<div class="perm-grid">';
+  Object.entries(PERM_LABELS).forEach(([k, lbl]) => {
+    if (k === 'hideCustomer') {
+      html += `<div class="perm-item" style="grid-column:1/-1">
+        <div class="${p[k]?'perm-ok':'perm-no'}">${p[k]?'🔒 مفعّل':'👁️ لا يُطبَّق'}</div>
+        <div class="pi-label">${lbl}</div></div>`;
+    } else {
+      html += `<div class="perm-item"><div class="${p[k]?'perm-ok':'perm-no'}">${p[k]?'✓':'✗'}</div>
+        <div class="pi-label">${lbl}</div></div>`;
+    }
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+</script>
+
+<%- include('../partials/foot') %>

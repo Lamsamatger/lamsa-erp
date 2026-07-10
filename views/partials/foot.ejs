@@ -8,7 +8,11 @@
   <a href="/orders"     class="bottom-nav-item <%= path.startsWith('/orders')?'active':'' %>"><span class="bnav-icon">🗒️</span><span>الطلبات</span></a>
   <a href="/production" class="bottom-nav-item bottom-nav-scan <%= path.startsWith('/production')?'active':'' %>"><span class="bnav-icon">⚙️</span><span>الإنتاج</span></a>
   <a href="/packaging"  class="bottom-nav-item <%= path.startsWith('/packaging')?'active':'' %>"><span class="bnav-icon">📦</span><span>التغليف</span></a>
+  <% if (user && user.role === 'admin') { %>
+  <a href="/settings"   class="bottom-nav-item <%= path.startsWith('/settings')?'active':'' %>"><span class="bnav-icon">🔐</span><span>إعدادات</span></a>
+  <% } else { %>
   <a href="/scanner"    class="bottom-nav-item <%= path.startsWith('/scanner')?'active':'' %>"><span class="bnav-icon">🔬</span><span>ماسح</span></a>
+  <% } %>
 </nav>
 <% } %>
 

@@ -3,3 +3,4 @@
 - [Production & Packaging Module](production-module.md) — ORDER_STATUSES now 12, isLate excludes all post-QC statuses, initInv/initPkg pattern for lazy array init
 - [Inventory Module](inventory-module.md) — inventory_items + inventory_movements arrays; ITEM_CATEGORIES; INVENTORY_UNITS; allowlist validation; floating-point rounding pattern
 - [Reports Module](reports-module.md) — 5-tab reports page; period filter applied to KPIs + all subsections; period-scoped fallback to all-time when period dataset is empty
+- [Settings & Permissions Module](settings-permissions-module.md) — /settings routes, 12 roles, ROLE_PERMISSIONS, hideCustomer logic, system settings in db.meta.settings, EJS safety rules

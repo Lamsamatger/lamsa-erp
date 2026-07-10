@@ -1,0 +1,290 @@
+<%- include('../partials/head', {title: 'إعدادات النظام'}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; }
+
+.sys-panel { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:20px; overflow:hidden; }
+.sys-panel-hd { padding:14px 18px; border-bottom:1px solid #f0f0f0; font-weight:800; font-size:.92rem; color:var(--navy); }
+.sys-panel-body { padding:22px 24px; }
+
+/* Tabs */
+.sys-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:22px; }
+.sys-tab { padding:8px 18px; border-radius:30px; background:#f0f4f8; color:#555; font-size:.84rem; font-weight:600; text-decoration:none; transition:all .15s; }
+.sys-tab:hover { background:#e2e8f0; color:var(--navy); }
+.sys-tab.active { background:var(--navy); color:#fff; }
+
+.field-row { margin-bottom:18px; }
+.field-row label { display:block; font-size:.84rem; font-weight:700; color:#444; margin-bottom:5px; }
+.field-row .hint  { font-size:.75rem; color:#aaa; margin-top:4px; }
+
+.toggle-row { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid #f5f5f5; }
+.toggle-row:last-child { border:0; }
+.toggle-label { font-size:.87rem; font-weight:600; color:#333; }
+.toggle-desc  { font-size:.75rem; color:#888; margin-top:2px; }
+.form-check-input { width:40px; height:22px; cursor:pointer; }
+
+.save-btn { background:var(--navy); color:#fff; border:0; padding:9px 28px; border-radius:8px; font-size:.88rem; font-weight:700; cursor:pointer; transition:opacity .15s; }
+.save-btn:hover { opacity:.88; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">⚙️ إعدادات النظام</h1>
+  <a href="/settings" class="btn btn-outline-secondary btn-sm">← الإعدادات</a>
+</div>
+
+<% if (success) { %>
+<div class="alert alert-success alert-dismissible fade show" style="font-size:.85rem">
+  ✅ <%= success %>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<% } %>
+<% if (error) { %>
+<div class="alert alert-danger" style="font-size:.85rem">⛔ <%= error %></div>
+<% } %>
+
+<!-- Tabs -->
+<div class="sys-tabs">
+  <a href="/settings/system?tab=company"       class="sys-tab <%=tab==='company'?'active':''%>">🏢 الشركة</a>
+  <a href="/settings/system?tab=security"      class="sys-tab <%=tab==='security'?'active':''%>">🔒 الأمان</a>
+  <a href="/settings/system?tab=barcode"       class="sys-tab <%=tab==='barcode'?'active':''%>">📱 الباركود والـ QR</a>
+  <a href="/settings/system?tab=printing"      class="sys-tab <%=tab==='printing'?'active':''%>">🖨️ الطباعة</a>
+  <a href="/settings/system?tab=language"      class="sys-tab <%=tab==='language'?'active':''%>">🌐 اللغة والعملة</a>
+  <a href="/settings/system?tab=notifications" class="sys-tab <%=tab==='notifications'?'active':''%>">🔔 التنبيهات</a>
+</div>
+
+<%# ════ COMPANY ════ %>
+<% if (tab === 'company') { %>
+<div class="sys-panel">
+  <div class="sys-panel-hd">🏢 معلومات الشركة</div>
+  <div class="sys-panel-body">
+    <form method="POST" action="/settings/system">
+      <input type="hidden" name="section" value="company">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <div class="field-row">
+            <label>اسم الشركة / العلامة التجارية</label>
+            <input class="form-control" name="name" value="<%= settings.company?.name||'' %>" placeholder="لمسة أزيائي">
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="field-row">
+            <label>رقم الجوال</label>
+            <input class="form-control" name="phone" value="<%= settings.company?.phone||'' %>" placeholder="05xxxxxxxx" dir="ltr">
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="field-row">
+            <label>البريد الإلكتروني</label>
+            <input class="form-control" type="email" name="email" value="<%= settings.company?.email||'' %>" placeholder="info@example.com" dir="ltr">
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="field-row">
+            <label>الرقم الضريبي</label>
+            <input class="form-control" name="taxNumber" value="<%= settings.company?.taxNumber||'' %>" placeholder="3xxxxxxxxxx" dir="ltr">
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="field-row">
+            <label>العنوان</label>
+            <input class="form-control" name="address" value="<%= settings.company?.address||'' %>" placeholder="المدينة، الحي، الشارع">
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="field-row">
+            <label>الموقع الإلكتروني</label>
+            <input class="form-control" name="website" value="<%= settings.company?.website||'' %>" placeholder="https://example.com" dir="ltr">
+          </div>
+        </div>
+      </div>
+      <button type="submit" class="save-btn">💾 حفظ معلومات الشركة</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%# ════ SECURITY ════ %>
+<% if (tab === 'security') { %>
+<div class="sys-panel">
+  <div class="sys-panel-hd">🔒 الأمان والخصوصية</div>
+  <div class="sys-panel-body">
+    <form method="POST" action="/settings/system">
+      <input type="hidden" name="section" value="security">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">🙈 إخفاء بيانات العميل عن موظفي الإنتاج</div>
+          <div class="toggle-desc">موظفو التجهيز والمشاغل والتطريز والجودة لن يرون اسم العميل أو رقم جواله</div>
+        </div>
+        <input class="form-check-input" type="checkbox" name="hideCustomerFromProduction"
+          <%=settings.security?.hideCustomerFromProduction?'checked':''%> role="switch">
+      </div>
+      <div class="field-row mt-3">
+        <label>مهلة انتهاء الجلسة (بالدقائق)</label>
+        <input class="form-control" type="number" name="sessionTimeout" min="30" max="1440"
+          value="<%= settings.security?.sessionTimeout||480 %>" style="max-width:200px">
+        <div class="hint">الافتراضي: 480 دقيقة (8 ساعات عمل). القيمة الدنيا 30 دقيقة.</div>
+      </div>
+      <button type="submit" class="save-btn">💾 حفظ إعدادات الأمان</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%# ════ BARCODE ════ %>
+<% if (tab === 'barcode') { %>
+<div class="sys-panel">
+  <div class="sys-panel-hd">📱 إعدادات الباركود والـ QR</div>
+  <div class="sys-panel-body">
+    <form method="POST" action="/settings/system">
+      <input type="hidden" name="section" value="barcode">
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-sm-6">
+          <div class="field-row">
+            <label>نوع الرمز الافتراضي</label>
+            <select class="form-select" name="type">
+              <option value="QR"      <%=settings.barcode?.type==='QR'?'selected':''%>>QR Code</option>
+              <option value="CODE128" <%=settings.barcode?.type==='CODE128'?'selected':''%>>Barcode 128</option>
+              <option value="CODE39"  <%=settings.barcode?.type==='CODE39'?'selected':''%>>Barcode 39</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6">
+          <div class="field-row">
+            <label>حجم الطباعة</label>
+            <select class="form-select" name="size">
+              <option value="small"  <%=settings.barcode?.size==='small'?'selected':''%>>صغير</option>
+              <option value="medium" <%=settings.barcode?.size==='medium'?'selected':''%>>متوسط</option>
+              <option value="large"  <%=settings.barcode?.size==='large'?'selected':''%>>كبير</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <p class="fw-bold" style="font-size:.85rem;color:var(--navy)">البيانات المطبوعة مع الرمز:</p>
+      <% var barcodeToggles = [
+        { key:'showName',  label:'اسم المنتج',       desc:'' },
+        { key:'showOrder', label:'رقم الطلب',         desc:'' },
+        { key:'showSize',  label:'المقاس',             desc:'' },
+        { key:'showColor', label:'اللون',              desc:'' }
+      ]; %>
+      <% barcodeToggles.forEach(function(t){ %>
+      <div class="toggle-row">
+        <div class="toggle-label"><%= t.label %></div>
+        <input class="form-check-input" type="checkbox" name="<%= t.key %>"
+          <%=settings.barcode?.[t.key]?'checked':''%> role="switch">
+      </div>
+      <% }); %>
+      <button type="submit" class="save-btn mt-3">💾 حفظ إعدادات الباركود</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%# ════ PRINTING ════ %>
+<% if (tab === 'printing') { %>
+<div class="sys-panel">
+  <div class="sys-panel-hd">🖨️ إعدادات الطباعة</div>
+  <div class="sys-panel-body">
+    <form method="POST" action="/settings/system">
+      <input type="hidden" name="section" value="printing">
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-sm-6">
+          <div class="field-row">
+            <label>حجم الورق الافتراضي</label>
+            <select class="form-select" name="paper">
+              <option value="A4"     <%=settings.printing?.paper==='A4'?'selected':''%>>A4</option>
+              <option value="A5"     <%=settings.printing?.paper==='A5'?'selected':''%>>A5</option>
+              <option value="Letter" <%=settings.printing?.paper==='Letter'?'selected':''%>>Letter</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="toggle-row mb-3">
+        <div>
+          <div class="toggle-label">طباعة شعار الشركة في الترويسة</div>
+          <div class="toggle-desc">يظهر اسم الشركة في أعلى كل مطبوعة</div>
+        </div>
+        <input class="form-check-input" type="checkbox" name="logo"
+          <%=settings.printing?.logo?'checked':''%> role="switch">
+      </div>
+      <div class="field-row">
+        <label>نص الترويسة الإضافي</label>
+        <input class="form-control" name="headerNote" value="<%= settings.printing?.headerNote||'' %>"
+          placeholder="مثال: يُرجى الاحتفاظ بهذه الوثيقة">
+      </div>
+      <button type="submit" class="save-btn">💾 حفظ إعدادات الطباعة</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%# ════ LANGUAGE ════ %>
+<% if (tab === 'language') { %>
+<div class="sys-panel">
+  <div class="sys-panel-hd">🌐 اللغة والعملة</div>
+  <div class="sys-panel-body">
+    <form method="POST" action="/settings/system">
+      <input type="hidden" name="section" value="language">
+      <div class="row g-3">
+        <div class="col-12 col-sm-6">
+          <div class="field-row">
+            <label>العملة</label>
+            <select class="form-select" name="currency">
+              <option value="SAR" <%=settings.language?.currency==='SAR'?'selected':''%>>ريال سعودي (SAR)</option>
+              <option value="AED" <%=settings.language?.currency==='AED'?'selected':''%>>درهم إماراتي (AED)</option>
+              <option value="KWD" <%=settings.language?.currency==='KWD'?'selected':''%>>دينار كويتي (KWD)</option>
+              <option value="QAR" <%=settings.language?.currency==='QAR'?'selected':''%>>ريال قطري (QAR)</option>
+              <option value="BHD" <%=settings.language?.currency==='BHD'?'selected':''%>>دينار بحريني (BHD)</option>
+              <option value="OMR" <%=settings.language?.currency==='OMR'?'selected':''%>>ريال عُماني (OMR)</option>
+              <option value="EGP" <%=settings.language?.currency==='EGP'?'selected':''%>>جنيه مصري (EGP)</option>
+              <option value="USD" <%=settings.language?.currency==='USD'?'selected':''%>>دولار أمريكي (USD)</option>
+            </select>
+          </div>
+        </div>
+        <div class="col-12 col-sm-6">
+          <div class="field-row">
+            <label>تنسيق التاريخ</label>
+            <select class="form-select" name="dateFormat">
+              <option value="DD/MM/YYYY" <%=settings.language?.dateFormat==='DD/MM/YYYY'?'selected':''%>>DD/MM/YYYY</option>
+              <option value="YYYY-MM-DD" <%=settings.language?.dateFormat==='YYYY-MM-DD'?'selected':''%>>YYYY-MM-DD</option>
+              <option value="MM/DD/YYYY" <%=settings.language?.dateFormat==='MM/DD/YYYY'?'selected':''%>>MM/DD/YYYY</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="alert alert-info mt-3" style="font-size:.82rem">
+        🌐 واجهة النظام ثابتة باللغة العربية (RTL) ولا يمكن تغييرها حالياً.
+      </div>
+      <button type="submit" class="save-btn">💾 حفظ إعدادات اللغة</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%# ════ NOTIFICATIONS ════ %>
+<% if (tab === 'notifications') { %>
+<div class="sys-panel">
+  <div class="sys-panel-hd">🔔 إعدادات التنبيهات</div>
+  <div class="sys-panel-body">
+    <form method="POST" action="/settings/system">
+      <input type="hidden" name="section" value="notifications">
+      <% var notifToggles = [
+        { key:'lowStock', label:'⚠️ تنبيه نقص المخزون', desc:'تظهر تنبيهات في لوحة المخزون عند وصول الأصناف للحد الأدنى' },
+        { key:'delay',    label:'🕐 تنبيه تأخر الطلبات', desc:'إظهار علامة التأخر على الطلبات التي تجاوزت 4 أيام' }
+      ]; %>
+      <% notifToggles.forEach(function(t){ %>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label"><%= t.label %></div>
+          <% if (t.desc) { %><div class="toggle-desc"><%= t.desc %></div><% } %>
+        </div>
+        <input class="form-check-input" type="checkbox" name="<%= t.key %>"
+          <%=settings.notifications?.[t.key]?'checked':''%> role="switch">
+      </div>
+      <% }); %>
+      <button type="submit" class="save-btn mt-3">💾 حفظ إعدادات التنبيهات</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>

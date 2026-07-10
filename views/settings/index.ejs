@@ -1,0 +1,112 @@
+<%- include('../partials/head', {title: 'الإعدادات'}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --purple:#8b5cf6; }
+
+.stg-card {
+  background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.07);
+  padding:24px 22px; text-decoration:none; color:inherit; display:block;
+  transition:box-shadow .15s, transform .15s; border-top:4px solid #e5e7eb; height:100%;
+}
+.stg-card:hover { box-shadow:0 6px 24px rgba(0,0,0,.12); transform:translateY(-2px); color:inherit; }
+.stg-card.c-navy  { border-top-color:var(--navy); }
+.stg-card.c-green { border-top-color:var(--green); }
+.stg-card.c-gold  { border-top-color:var(--gold); }
+.stg-card.c-purple{ border-top-color:var(--purple); }
+.stg-card.c-orange{ border-top-color:var(--orange); }
+.stg-icon { font-size:2rem; margin-bottom:12px; display:block; }
+.stg-title { font-size:1rem; font-weight:800; color:var(--navy); margin-bottom:4px; }
+.stg-desc  { font-size:.82rem; color:#888; line-height:1.5; }
+.stg-meta  { font-size:.78rem; color:#aaa; margin-top:10px; }
+.stg-meta strong { color:var(--navy); }
+
+.info-row { background:#fff; border-radius:12px; padding:16px 20px; box-shadow:0 1px 6px rgba(0,0,0,.06); }
+.info-row dt { font-size:.75rem; color:#888; font-weight:600; }
+.info-row dd { font-size:1rem; font-weight:700; color:var(--navy); margin-bottom:0; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="page-title mb-0">⚙️ الإعدادات والصلاحيات</h1>
+</div>
+
+<!-- Quick info row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="info-row text-center">
+      <dt>المستخدمون</dt>
+      <dd><%= userCount %></dd>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="info-row text-center">
+      <dt>نشطون</dt>
+      <dd style="color:var(--green)"><%= activeUsers %></dd>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="info-row text-center">
+      <dt>الأدوار</dt>
+      <dd style="color:var(--purple)"><%= roleCount %></dd>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="info-row text-center">
+      <dt>سجل النشاط</dt>
+      <dd style="color:var(--gold)"><%= logCount %></dd>
+    </div>
+  </div>
+</div>
+
+<!-- Settings cards grid -->
+<div class="row g-3">
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="/settings/users" class="stg-card c-navy">
+      <span class="stg-icon">👥</span>
+      <div class="stg-title">إدارة المستخدمين</div>
+      <div class="stg-desc">إضافة وتعديل وتعطيل الموظفين وإعادة تعيين كلمات المرور</div>
+      <div class="stg-meta"><strong><%= activeUsers %></strong> نشط · <strong><%= disabledUsers %></strong> معطل</div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="/settings/roles" class="stg-card c-purple">
+      <span class="stg-icon">🔐</span>
+      <div class="stg-title">الأدوار والصلاحيات</div>
+      <div class="stg-desc">عرض صلاحيات كل دور وقاعدة التحكم في الوصول</div>
+      <div class="stg-meta"><strong><%= roleCount %></strong> دور مُعرَّف في النظام</div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="/settings/activity" class="stg-card c-gold">
+      <span class="stg-icon">📋</span>
+      <div class="stg-title">سجل النشاط</div>
+      <div class="stg-desc">تتبع كل عملية في النظام مع اسم الموظف والتوقيت والتغييرات</div>
+      <div class="stg-meta"><strong><%= logCount %></strong> سجل محفوظ</div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="/settings/system?tab=company" class="stg-card c-green">
+      <span class="stg-icon">🏢</span>
+      <div class="stg-title">معلومات الشركة</div>
+      <div class="stg-desc">الاسم والعنوان وبيانات التواصل والرقم الضريبي</div>
+      <div class="stg-meta"><%= settings.company?.name || 'لمسة أزيائي' %></div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="/settings/system?tab=security" class="stg-card c-orange">
+      <span class="stg-icon">🔒</span>
+      <div class="stg-title">الأمان والخصوصية</div>
+      <div class="stg-desc">إخفاء بيانات العملاء عن الإنتاج ومهلة الجلسة</div>
+      <div class="stg-meta"><%= settings.security?.hideCustomerFromProduction ? '🔒 إخفاء العملاء: مفعّل' : '⚠️ إخفاء العملاء: معطل' %></div>
+    </a>
+  </div>
+  <div class="col-12 col-sm-6 col-lg-4">
+    <a href="/settings/system?tab=barcode" class="stg-card">
+      <span class="stg-icon">📱</span>
+      <div class="stg-title">الباركود والطباعة</div>
+      <div class="stg-desc">إعدادات QR والباركود وورق الطباعة والترويسة</div>
+      <div class="stg-meta">نوع: <%= settings.barcode?.type || 'QR' %> · حجم: <%= settings.barcode?.size || 'متوسط' %></div>
+    </a>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

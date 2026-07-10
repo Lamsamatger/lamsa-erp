@@ -1,0 +1,187 @@
+<%- include('../partials/head', {title: 'إدارة المستخدمين'}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --purple:#8b5cf6; }
+
+.usr-panel { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:20px; overflow:hidden; }
+.usr-panel-hd { padding:14px 18px; border-bottom:1px solid #f0f0f0; font-weight:800; font-size:.9rem; color:var(--navy); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+.usr-card {
+  background:#fff; border-radius:12px; border:1.5px solid #e5e7eb;
+  padding:14px 16px; display:flex; align-items:center; gap:14px;
+  transition:box-shadow .15s; cursor:pointer;
+}
+.usr-card:hover { box-shadow:0 3px 14px rgba(0,0,0,.1); border-color:var(--navy); }
+.usr-avatar {
+  width:44px; height:44px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:1.1rem; font-weight:900; flex-shrink:0;
+  background:var(--navy); color:var(--gold);
+}
+.usr-avatar.disabled { background:#e5e7eb; color:#aaa; }
+.usr-body { flex:1; min-width:0; }
+.usr-name { font-size:.9rem; font-weight:800; color:var(--navy); margin-bottom:2px; }
+.usr-sub  { font-size:.75rem; color:#888; }
+.usr-actions { display:flex; gap:6px; flex-shrink:0; }
+.role-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; background:#f0f4f8; color:var(--navy); }
+.status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-left:5px; }
+.status-dot.active   { background:var(--green); }
+.status-dot.disabled { background:#d1d5db; }
+
+/* Filter bar */
+.filter-bar { background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+
+/* Mobile cards vs desktop table */
+.usr-table { font-size:.85rem; }
+.usr-table thead th { background:#f8fafc; font-size:.75rem; color:#888; font-weight:700; }
+
+/* Count pills */
+.count-pill { background:#f8fafc; border-radius:10px; padding:8px 14px; text-align:center; }
+.cp-num { font-size:1.4rem; font-weight:900; color:var(--navy); line-height:1; }
+.cp-lbl { font-size:.72rem; color:#888; margin-top:2px; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">👥 إدارة المستخدمين</h1>
+  <div class="d-flex gap-2">
+    <a href="/settings" class="btn btn-outline-secondary btn-sm">← الإعدادات</a>
+    <a href="/settings/users/new" class="btn btn-sm" style="background:var(--navy);color:#fff;font-weight:700">+ مستخدم جديد</a>
+  </div>
+</div>
+
+<% if (success) { %>
+<div class="alert alert-success alert-dismissible fade show" role="alert" style="font-size:.85rem">
+  ✅ <%= success %>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<% } %>
+
+<!-- Count row -->
+<div class="row g-2 mb-3">
+  <div class="col-4">
+    <div class="count-pill"><div class="cp-num"><%= totalCount %></div><div class="cp-lbl">إجمالي</div></div>
+  </div>
+  <div class="col-4">
+    <div class="count-pill"><div class="cp-num" style="color:var(--green)"><%= activeCount %></div><div class="cp-lbl">نشطون</div></div>
+  </div>
+  <div class="col-4">
+    <div class="count-pill"><div class="cp-num" style="color:#d1d5db"><%= totalCount - activeCount %></div><div class="cp-lbl">معطلون</div></div>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="GET" action="/settings/users" class="filter-bar mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <input class="form-control form-control-sm" name="q" value="<%= filters.q||'' %>" placeholder="🔍 بحث بالاسم أو المستخدم…">
+    </div>
+    <div class="col-6 col-md-3">
+      <select class="form-select form-select-sm" name="role">
+        <option value="">كل الأدوار</option>
+        <% Object.entries(ROLES).forEach(function([k,v]){ %>
+        <option value="<%= k %>" <%= filters.role===k ? 'selected' : '' %>><%= v %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="col-6 col-md-3">
+      <select class="form-select form-select-sm" name="status">
+        <option value="">كل الحالات</option>
+        <option value="active"   <%= filters.status==='active'   ? 'selected' : '' %>>نشط</option>
+        <option value="disabled" <%= filters.status==='disabled' ? 'selected' : '' %>>معطل</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-2">
+      <button class="btn btn-outline-secondary btn-sm w-100">تصفية</button>
+    </div>
+  </div>
+</form>
+
+<!-- Desktop table -->
+<div class="usr-panel d-none d-md-block">
+  <div class="usr-panel-hd">
+    <span>المستخدمون (<%= users.length %>)</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm usr-table mb-0 align-middle">
+      <thead>
+        <tr>
+          <th>الموظف</th>
+          <th>اسم المستخدم</th>
+          <th>الدور</th>
+          <th>الحالة</th>
+          <th>آخر نشاط</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      <% if (users.length === 0) { %>
+        <tr><td colspan="6" class="text-center text-muted py-4">لا توجد نتائج</td></tr>
+      <% } %>
+      <% users.forEach(function(u) { %>
+      <% var isActive = u.active !== false; %>
+      <tr style="opacity:<%=isActive?1:.6%>">
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <div class="usr-avatar <%=isActive?'':'disabled'%>" style="width:34px;height:34px;font-size:.85rem">
+              <%= u.name ? u.name[0] : '?' %>
+            </div>
+            <div>
+              <div style="font-weight:700;color:var(--navy);font-size:.88rem"><%= u.name %></div>
+              <div style="font-size:.72rem;color:#aaa"><%= u.phone||'' %></div>
+            </div>
+          </div>
+        </td>
+        <td style="font-family:monospace;font-size:.82rem"><%= u.username %></td>
+        <td><span class="role-badge"><%= ROLES[u.role] || u.role %></span></td>
+        <td>
+          <span class="status-dot <%=isActive?'active':'disabled'%>"></span>
+          <span style="font-size:.78rem;color:<%=isActive?'var(--green)':'#aaa'%>"><%=isActive?'نشط':'معطل'%></span>
+        </td>
+        <td style="font-size:.75rem;color:#aaa"><%= u.lastActivity ? u.lastActivity.slice(0,16).replace('T',' ') : 'لم يسجل دخولاً' %></td>
+        <td>
+          <div class="d-flex gap-1">
+            <a href="/settings/users/<%= u.id %>" class="btn btn-sm btn-outline-primary" style="font-size:.72rem">تعديل</a>
+            <form method="POST" action="/settings/users/<%= u.id %>/toggle" class="m-0">
+              <button class="btn btn-sm btn-outline-<%=isActive?'warning':'success'%>" style="font-size:.72rem">
+                <%=isActive?'تعطيل':'تفعيل'%>
+              </button>
+            </form>
+            <% if (u.id !== user.id) { %>
+            <form method="POST" action="/settings/users/<%= u.id %>/delete" class="m-0"
+                  onsubmit="return confirm('حذف المستخدم <%= u.name %>؟')">
+              <button class="btn btn-sm btn-outline-danger" style="font-size:.72rem">حذف</button>
+            </form>
+            <% } %>
+          </div>
+        </td>
+      </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mobile cards -->
+<div class="d-md-none">
+  <% if (users.length === 0) { %>
+  <p class="text-center text-muted py-4">لا توجد نتائج</p>
+  <% } %>
+  <% users.forEach(function(u) { %>
+  <% var isActive = u.active !== false; %>
+  <div class="usr-card mb-2" style="opacity:<%=isActive?1:.65%>">
+    <div class="usr-avatar <%=isActive?'':'disabled'%>"><%= u.name ? u.name[0] : '?' %></div>
+    <div class="usr-body">
+      <div class="usr-name"><%= u.name %></div>
+      <div class="usr-sub">
+        <span class="status-dot <%=isActive?'active':'disabled'%>"></span>
+        <span class="role-badge ms-1"><%= ROLES[u.role] || u.role %></span>
+        <span class="ms-1" style="font-family:monospace;font-size:.72rem;color:#aaa"><%= u.username %></span>
+      </div>
+    </div>
+    <div class="usr-actions">
+      <a href="/settings/users/<%= u.id %>" class="btn btn-sm btn-outline-primary" style="font-size:.72rem">تعديل</a>
+    </div>
+  </div>
+  <% }); %>
+</div>
+
+<%- include('../partials/foot') %>

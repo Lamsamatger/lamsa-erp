@@ -1,0 +1,137 @@
+<%- include('../partials/head', {title: 'سجل النشاط'}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --purple:#8b5cf6; --teal:#0d9488; }
+
+.act-panel { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:20px; overflow:hidden; }
+.act-panel-hd { padding:13px 18px; border-bottom:1px solid #f0f0f0; font-weight:800; font-size:.9rem; color:var(--navy); display:flex; justify-content:space-between; align-items:center; }
+.act-panel-body { padding:0; }
+
+.act-row { display:flex; align-items:flex-start; gap:12px; padding:11px 18px; border-bottom:1px solid #f8f8f8; transition:background .1s; }
+.act-row:hover { background:#fafbfc; }
+.act-row:last-child { border-bottom:none; }
+
+.act-avatar { width:34px; height:34px; border-radius:50%; background:#f0f4f8; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:800; color:var(--navy); flex-shrink:0; }
+.act-body { flex:1; min-width:0; }
+.act-action { font-size:.85rem; font-weight:700; color:var(--navy); }
+.act-detail { font-size:.76rem; color:#777; margin-top:2px; }
+.act-change { font-size:.73rem; color:#aaa; margin-top:3px; }
+.act-meta   { font-size:.72rem; color:#bbb; margin-top:2px; }
+
+/* Type badges */
+.type-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:.7rem; font-weight:700; }
+.t-create { background:#d1fae5; color:#065f46; }
+.t-update { background:#dbeafe; color:#1e40af; }
+.t-delete { background:#fee2e2; color:#991b1b; }
+.t-security { background:#fef3c7; color:#92400e; }
+.t-status_change { background:#ede9fe; color:#6d28d9; }
+.t-export { background:#f0fdf4; color:#166534; }
+.t-default { background:#f1f5f9; color:#475569; }
+
+/* Module badge */
+.mod-badge { display:inline-block; padding:2px 7px; border-radius:8px; font-size:.68rem; font-weight:700; background:#f1f5f9; color:#64748b; }
+
+/* Before/after */
+.diff-wrap { background:#f8fafc; border-radius:8px; padding:5px 10px; font-size:.73rem; color:#555; margin-top:4px; }
+.diff-before { color:var(--red); }
+.diff-after  { color:var(--green); }
+.diff-arrow  { color:#aaa; margin:0 4px; }
+
+/* Filter bar */
+.filter-bar { background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+
+/* Empty state */
+.empty-act { text-align:center; padding:40px 20px; color:#aaa; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">📋 سجل النشاط</h1>
+  <a href="/settings" class="btn btn-outline-secondary btn-sm">← الإعدادات</a>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="/settings/activity" class="filter-bar mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-md-3">
+      <input class="form-control form-control-sm" name="q" value="<%= filters.q||'' %>" placeholder="🔍 بحث في الإجراءات والتفاصيل…">
+    </div>
+    <div class="col-6 col-md-2">
+      <select class="form-select form-select-sm" name="user_id">
+        <option value="">كل المستخدمين</option>
+        <% users.forEach(function(u){ %>
+        <option value="<%= u.id %>" <%= filters.user_id===u.id ? 'selected' : '' %>><%= u.name %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <select class="form-select form-select-sm" name="type">
+        <option value="">كل الأنواع</option>
+        <% ['create','update','delete','security','status_change','export'].forEach(function(t){ %>
+        <% var labels = {create:'إنشاء',update:'تعديل',delete:'حذف',security:'أمان',status_change:'تغيير حالة',export:'تصدير'}; %>
+        <option value="<%= t %>" <%= filters.type===t ? 'selected' : '' %>><%= labels[t]||t %></option>
+        <% }); %>
+        <% types.filter(function(t){return !['create','update','delete','security','status_change','export'].includes(t);}).forEach(function(t){ %>
+        <option value="<%= t %>" <%= filters.type===t ? 'selected' : '' %>><%= t %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <input class="form-control form-control-sm" type="date" name="date_from" value="<%= filters.date_from||'' %>" title="من تاريخ">
+    </div>
+    <div class="col-6 col-md-2">
+      <input class="form-control form-control-sm" type="date" name="date_to" value="<%= filters.date_to||'' %>" title="إلى تاريخ">
+    </div>
+    <div class="col-12 col-md-1">
+      <button class="btn btn-outline-secondary btn-sm w-100">تصفية</button>
+    </div>
+  </div>
+</form>
+
+<div class="act-panel">
+  <div class="act-panel-hd">
+    <span>السجلات (<%= logs.length %> من <%= totalCount %>)</span>
+    <a href="/settings/activity" class="btn btn-outline-secondary btn-sm" style="font-size:.75rem">مسح الفلتر</a>
+  </div>
+  <div class="act-panel-body">
+    <% if (logs.length === 0) { %>
+    <div class="empty-act">📭 لا توجد سجلات تطابق الفلتر المحدد</div>
+    <% } %>
+    <% var typeClassMap = {create:'t-create',update:'t-update',delete:'t-delete',security:'t-security',status_change:'t-status_change',export:'t-export'}; %>
+    <% var actionIcons = {
+      'إنشاء طلب':'🆕','تغيير حالة طلب':'🔁','تعيين مشغل':'🏭',
+      'مسح باركود - out_workshop':'📤','مسح باركود - in_workshop':'📥',
+      'بدء التغليف':'📦','إتمام التغليف':'✅','إنشاء شحنة':'🚚',
+      'استلام مواد':'⬇️','صرف مواد للإنتاج':'⬆️','جرد مخزون':'📊',
+      'إضافة صنف مخزون':'➕','إضافة مستخدم':'👤','تعديل مستخدم':'✏️',
+      'حذف مستخدم':'🗑️','تعطيل مستخدم':'🚫','تفعيل مستخدم':'✅',
+      'تغيير كلمة المرور':'🔑','تعديل إعدادات النظام':'⚙️'
+    }; %>
+    <% logs.forEach(function(l) { %>
+    <div class="act-row">
+      <div class="act-avatar" title="<%= l.user_role %>"><%= l.user_name ? l.user_name[0] : '?' %></div>
+      <div class="act-body">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="act-action"><%= actionIcons[l.action] || '📌' %> <%= l.action %></span>
+          <% if (l.action_type) { %><span class="type-badge <%= typeClassMap[l.action_type]||'t-default' %>"><%= {create:'إنشاء',update:'تعديل',delete:'حذف',security:'أمان',status_change:'تغيير حالة',export:'تصدير'}[l.action_type]||l.action_type %></span><% } %>
+          <% if (l.module) { %><span class="mod-badge"><%= l.module %></span><% } %>
+        </div>
+        <% if (l.details) { %><div class="act-detail"><%= l.details %></div><% } %>
+        <% if (l.before || l.after) { %>
+        <div class="diff-wrap">
+          <% if (l.before) { %><span class="diff-before">← <%= l.before %></span><% } %>
+          <% if (l.before && l.after) { %><span class="diff-arrow">→</span><% } %>
+          <% if (l.after) { %><span class="diff-after"><%= l.after %> →</span><% } %>
+        </div>
+        <% } %>
+        <div class="act-meta">
+          <strong><%= l.user_name %></strong>
+          <% if (l.user_role) { %> · <span><%= l.user_role %></span><% } %>
+          · <span><%= l.at ? l.at.slice(0,16).replace('T',' ') : '' %></span>
+        </div>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

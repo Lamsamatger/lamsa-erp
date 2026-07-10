@@ -2,8 +2,8 @@ const express = require('express');
 const session = require('express-session');
 const path = require('path');
 const crypto = require('crypto');
-const { load, save, newId, nextOrderNumber, hashPassword, verifyPassword, log } = require('./lib/db');
-const { ORDER_STATUSES, STATUS_COLORS, ROLES, PERMISSIONS, DELAY_DAYS_THRESHOLD } = require('./lib/constants');
+const { load, save, newId, nextOrderNumber, hashPassword, verifyPassword, log, DEFAULT_SETTINGS } = require('./lib/db');
+const { ORDER_STATUSES, STATUS_COLORS, ROLES, ROLE_PERMISSIONS, HIDE_CUSTOMER_ROLES, PERMISSIONS, DELAY_DAYS_THRESHOLD } = require('./lib/constants');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -49,6 +49,18 @@ app.use((req, res, next) => {
   res.locals.ORDER_STATUSES = ORDER_STATUSES;
   res.locals.STATUS_COLORS = STATUS_COLORS;
   res.locals.path = req.path;
+  // Inject granular permissions for templates
+  const role = req.session.user?.role || '';
+  const perms = ROLE_PERMISSIONS[role] || { view: true };
+  res.locals.userCan = perms;
+  // hideCustomer: role must have hideCustomer AND system setting must be enabled
+  // Read system setting lazily (cheap flat-file read cached per-request)
+  let sysHide = true; // default on (safe)
+  try {
+    const _db = load();
+    sysHide = _db.meta?.settings?.security?.hideCustomerFromProduction !== false;
+  } catch (e) { /* ignore */ }
+  res.locals.hideCustomer = perms.hideCustomer === true && sysHide;
   next();
 });
 
@@ -80,6 +92,12 @@ app.post('/login', (req, res) => {
   if (!u || !verifyPassword(password, u.salt, u.hash)) {
     return res.render('login', { error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
   }
+  if (u.active === false) {
+    return res.render('login', { error: 'هذا الحساب معطل — تواصل مع المدير' });
+  }
+  log(db, u.id, 'تسجيل دخول', u.name + ' (' + (ROLES[u.role] || u.role) + ')',
+    { module: 'auth', type: 'security' });
+  save(db);
   req.session.user = { id: u.id, username: u.username, name: u.name, role: u.role };
   res.redirect('/');
 });
@@ -1955,27 +1973,318 @@ app.post('/api/webhook/salla', (req, res) => {
   }
 });
 
-// ---------- USERS (admin) ----------
-app.get('/users', requireAuth, requireSection('users'), (req, res) => {
+// ════════════════════════════════════════════════════════
+// SETTINGS & PERMISSIONS MODULE
+// ════════════════════════════════════════════════════════
+
+function initSettings(db) {
+  if (!db.meta.settings) db.meta.settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  Object.keys(DEFAULT_SETTINGS).forEach(k => {
+    if (!db.meta.settings[k]) db.meta.settings[k] = { ...DEFAULT_SETTINGS[k] };
+  });
+  return db.meta.settings;
+}
+
+// ── Settings hub ─────────────────────────────────────
+app.get('/settings', requireAuth, requireSection('settings'), (req, res) => {
   const db = load();
-  res.render('users', { users: db.users });
+  const settings = initSettings(db);
+  const users = db.users || [];
+  res.render('settings/index', {
+    title: 'الإعدادات',
+    settings,
+    userCount:     users.length,
+    activeUsers:   users.filter(u => u.active !== false).length,
+    disabledUsers: users.filter(u => u.active === false).length,
+    logCount:      (db.activity_logs || []).length,
+    roleCount:     Object.keys(ROLES).length
+  });
 });
 
-app.post('/users/new', requireAuth, requireSection('users'), (req, res) => {
+// ── User list ─────────────────────────────────────────
+app.get('/settings/users', requireAuth, requireSection('users'), (req, res) => {
   const db = load();
-  const { hash, salt } = hashPassword(req.body.password);
-  db.users.push({ id: newId('u'), username: req.body.username, name: req.body.name, role: req.body.role, salt, hash });
+  let users = [...(db.users || [])];
+  const { role: rFilter, status: sFilter, q } = req.query;
+  if (rFilter) users = users.filter(u => u.role === rFilter);
+  if (sFilter === 'active')   users = users.filter(u => u.active !== false);
+  if (sFilter === 'disabled') users = users.filter(u => u.active === false);
+  if (q) {
+    const ql = q.toLowerCase();
+    users = users.filter(u =>
+      (u.name||'').toLowerCase().includes(ql) ||
+      (u.username||'').toLowerCase().includes(ql)
+    );
+  }
+  const userMap = {}; (db.users||[]).forEach(u => { userMap[u.id] = u; });
+  const lastActivity = {};
+  (db.activity_logs||[]).forEach(l => {
+    if (l.user_id && !lastActivity[l.user_id]) lastActivity[l.user_id] = l.at;
+  });
+  res.render('settings/users', {
+    title: 'إدارة المستخدمين',
+    users: users.map(u => ({ ...u, lastActivity: lastActivity[u.id] || null })),
+    filters: req.query,
+    ROLES, ROLE_PERMISSIONS,
+    totalCount: (db.users||[]).length,
+    activeCount: (db.users||[]).filter(u => u.active !== false).length,
+    success: req.query.success || null
+  });
+});
+
+// ── New user form ─────────────────────────────────────
+app.get('/settings/users/new', requireAuth, requireSection('users'), (req, res) => {
+  res.render('settings/user_form', {
+    title: 'مستخدم جديد', editUser: null, logs: [],
+    error: null, success: null, ROLES, ROLE_PERMISSIONS
+  });
+});
+
+app.post('/settings/users/new', requireAuth, requireSection('users'), (req, res) => {
+  const db = load();
+  const { name, username, password, role, phone } = req.body;
+  const err = (msg) => res.render('settings/user_form', {
+    title: 'مستخدم جديد', editUser: null, logs: [], error: msg, success: null, ROLES, ROLE_PERMISSIONS
+  });
+  if (!name || !username || !password || !role) return err('جميع الحقول المطلوبة يجب ملؤها');
+  if (!ROLES[role]) return err('دور غير معروف');
+  if (password.length < 6) return err('كلمة المرور قصيرة جداً (6 أحرف على الأقل)');
+  if ((db.users||[]).find(u => u.username === username.trim()))
+    return err('اسم المستخدم مستخدم بالفعل');
+  const { hash, salt } = hashPassword(password);
+  const newUser = {
+    id: newId('u'), username: username.trim(), name: name.trim(),
+    role, phone: (phone||'').trim(), active: true, salt, hash,
+    created_at: new Date().toISOString()
+  };
+  db.users.push(newUser);
+  log(db, req.session.user.id, 'إضافة مستخدم',
+    newUser.name + ' — ' + ROLES[role],
+    { module: 'settings', type: 'create', after: role });
   save(db);
-  res.redirect('/users');
+  res.redirect('/settings/users?success=' + encodeURIComponent('تم إضافة المستخدم ' + newUser.name));
 });
 
-app.post('/users/:id/delete', requireAuth, requireSection('users'), (req, res) => {
+// ── Edit user form ────────────────────────────────────
+app.get('/settings/users/:id', requireAuth, requireSection('users'), (req, res) => {
   const db = load();
-  if (req.params.id !== req.session.user.id) {
+  const editUser = (db.users||[]).find(u => u.id === req.params.id);
+  if (!editUser) return res.status(404).render('error', { message: 'المستخدم غير موجود' });
+  const logs = (db.activity_logs||[]).filter(l => l.user_id === editUser.id).slice(0, 15)
+    .map(l => ({ ...l, user_name: editUser.name }));
+  res.render('settings/user_form', {
+    title: 'تعديل المستخدم', editUser, logs,
+    error: req.query.error || null, success: req.query.success || null,
+    ROLES, ROLE_PERMISSIONS
+  });
+});
+
+app.post('/settings/users/:id/edit', requireAuth, requireSection('users'), (req, res) => {
+  const db = load();
+  const editUser = (db.users||[]).find(u => u.id === req.params.id);
+  if (!editUser) return res.status(404).render('error', { message: 'المستخدم غير موجود' });
+  const { name, role, phone } = req.body;
+  if (!name || !role || !ROLES[role])
+    return res.redirect('/settings/users/' + req.params.id + '?error=' + encodeURIComponent('بيانات غير صحيحة'));
+  const prevRole = editUser.role;
+  editUser.name  = name.trim();
+  editUser.role  = role;
+  editUser.phone = (phone||'').trim();
+  editUser.updated_at = new Date().toISOString();
+  if (req.session.user.id === editUser.id) {
+    req.session.user.name = editUser.name;
+    req.session.user.role = editUser.role;
+  }
+  log(db, req.session.user.id, 'تعديل مستخدم',
+    editUser.name + (prevRole !== role ? ' — الدور: ' + ROLES[prevRole] + ' → ' + ROLES[role] : ''),
+    { module: 'settings', type: 'update', before: prevRole, after: role });
+  save(db);
+  res.redirect('/settings/users/' + req.params.id + '?success=' + encodeURIComponent('تم حفظ البيانات'));
+});
+
+// ── Change password ───────────────────────────────────
+app.post('/settings/users/:id/password', requireAuth, requireSection('users'), (req, res) => {
+  const db = load();
+  const editUser = (db.users||[]).find(u => u.id === req.params.id);
+  if (!editUser) return res.status(404).render('error', { message: 'المستخدم غير موجود' });
+  const { password, confirm } = req.body;
+  if (!password || password.length < 6)
+    return res.redirect('/settings/users/' + req.params.id + '?error=' + encodeURIComponent('كلمة المرور قصيرة جداً (6 أحرف)'));
+  if (password !== confirm)
+    return res.redirect('/settings/users/' + req.params.id + '?error=' + encodeURIComponent('كلمتا المرور غير متطابقتين'));
+  const { hash, salt } = hashPassword(password);
+  editUser.hash = hash; editUser.salt = salt;
+  editUser.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تغيير كلمة المرور', editUser.name,
+    { module: 'settings', type: 'security' });
+  save(db);
+  res.redirect('/settings/users/' + req.params.id + '?success=' + encodeURIComponent('تم تغيير كلمة المرور'));
+});
+
+// ── Enable / Disable ──────────────────────────────────
+app.post('/settings/users/:id/toggle', requireAuth, requireSection('users'), (req, res) => {
+  const db = load();
+  const editUser = (db.users||[]).find(u => u.id === req.params.id);
+  if (!editUser) return res.status(404).render('error', { message: 'المستخدم غير موجود' });
+  if (editUser.id === req.session.user.id)
+    return res.redirect('/settings/users?error=' + encodeURIComponent('لا يمكنك تعطيل حسابك الخاص'));
+  editUser.active = editUser.active === false ? true : false;
+  editUser.updated_at = new Date().toISOString();
+  log(db, req.session.user.id,
+    editUser.active ? 'تفعيل مستخدم' : 'تعطيل مستخدم',
+    editUser.name, { module: 'settings', type: 'security' });
+  save(db);
+  res.redirect('/settings/users');
+});
+
+// ── Delete user (admin only) ──────────────────────────
+app.post('/settings/users/:id/delete', requireAuth, requireSection('users'), (req, res) => {
+  if (req.session.user.role !== 'admin')
+    return res.status(403).render('error', { message: 'الحذف للمدير فقط' });
+  const db = load();
+  const editUser = (db.users||[]).find(u => u.id === req.params.id);
+  if (!editUser) return res.status(404).render('error', { message: 'المستخدم غير موجود' });
+  if (editUser.id === req.session.user.id)
+    return res.redirect('/settings/users?error=' + encodeURIComponent('لا يمكنك حذف حسابك الخاص'));
+  db.users = db.users.filter(u => u.id !== req.params.id);
+  log(db, req.session.user.id, 'حذف مستخدم', editUser.name,
+    { module: 'settings', type: 'delete' });
+  save(db);
+  res.redirect('/settings/users?success=' + encodeURIComponent('تم حذف المستخدم ' + editUser.name));
+});
+
+// ── Roles & permissions view ──────────────────────────
+app.get('/settings/roles', requireAuth, requireSection('settings'), (req, res) => {
+  res.render('settings/roles', {
+    title: 'الأدوار والصلاحيات',
+    ROLES, ROLE_PERMISSIONS, PERMISSIONS
+  });
+});
+
+// ── Activity log ──────────────────────────────────────
+app.get('/settings/activity', requireAuth, (req, res) => {
+  const role = req.session.user.role;
+  if (!['admin', 'production_mgr'].includes(role))
+    return res.status(403).render('error', { message: 'ليس لديك صلاحية لعرض سجل النشاط' });
+  const db = load();
+  const { user_id, type: typeFilter, q, date_from, date_to } = req.query;
+  const userMap = {}; (db.users||[]).forEach(u => { userMap[u.id] = u; });
+
+  let logs = (db.activity_logs||[]).map(l => ({
+    ...l,
+    user_name: userMap[l.user_id]?.name || 'النظام',
+    user_role: ROLES[userMap[l.user_id]?.role] || ''
+  }));
+  if (user_id)    logs = logs.filter(l => l.user_id === user_id);
+  if (typeFilter) logs = logs.filter(l => l.action_type === typeFilter);
+  if (q) {
+    const ql = q.toLowerCase();
+    logs = logs.filter(l =>
+      (l.action||'').toLowerCase().includes(ql) ||
+      (l.details||'').toLowerCase().includes(ql) ||
+      (l.user_name||'').toLowerCase().includes(ql)
+    );
+  }
+  if (date_from) logs = logs.filter(l => (l.at||'') >= date_from);
+  if (date_to)   logs = logs.filter(l => (l.at||'') <= date_to + 'T23:59:59');
+
+  const types   = [...new Set((db.activity_logs||[]).map(l => l.action_type).filter(Boolean))];
+  const modules = [...new Set((db.activity_logs||[]).map(l => l.module).filter(Boolean))];
+
+  res.render('settings/activity', {
+    title: 'سجل النشاط',
+    logs: logs.slice(0, 300),
+    users: db.users || [],
+    filters: req.query,
+    types, modules, ROLES,
+    totalCount: (db.activity_logs||[]).length
+  });
+});
+
+// ── System settings ───────────────────────────────────
+app.get('/settings/system', requireAuth, requireSection('settings'), (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  save(db);
+  res.render('settings/system', {
+    title: 'إعدادات النظام',
+    settings, DEFAULT_SETTINGS,
+    tab: req.query.tab || 'company',
+    success: req.query.success || null,
+    error: req.query.error || null
+  });
+});
+
+app.post('/settings/system', requireAuth, requireSection('settings'), (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  const section = req.body.section;
+  const ALLOWED = ['company','security','barcode','printing','language','notifications','backup'];
+  if (!ALLOWED.includes(section))
+    return res.redirect('/settings/system?tab=company&error=' + encodeURIComponent('قسم غير معروف'));
+
+  // Copy current section, then overwrite with form values
+  const updated = { ...settings[section] };
+  // Identify boolean fields per section
+  const BOOL_FIELDS = {
+    security:      ['hideCustomerFromProduction'],
+    barcode:       ['showName','showOrder','showSize','showColor'],
+    printing:      ['logo'],
+    notifications: ['lowStock','delay']
+  };
+  const boolFields = new Set(BOOL_FIELDS[section] || []);
+
+  // Apply all non-boolean form fields
+  Object.keys(req.body).forEach(k => {
+    if (k !== 'section' && !boolFields.has(k)) updated[k] = req.body[k];
+  });
+  // Apply booleans (checkbox absent = false)
+  boolFields.forEach(f => { updated[f] = req.body[f] === 'on'; });
+
+  settings[section] = updated;
+  db.meta.settings  = settings;
+  log(db, req.session.user.id, 'تعديل إعدادات النظام',
+    'قسم: ' + section, { module: 'settings', type: 'update' });
+  save(db);
+  res.redirect('/settings/system?tab=' + section + '&success=' + encodeURIComponent('تم حفظ الإعدادات'));
+});
+
+// ── Backward-compat /users redirects (full validation preserved) ──
+app.get('/users', requireAuth, requireSection('users'), (req, res) => {
+  res.redirect('/settings/users');
+});
+app.post('/users/new', requireAuth, requireSection('users'), (req, res) => {
+  // Full validation identical to /settings/users/new
+  const db = load();
+  const { name, username, password, role } = req.body;
+  if (!name || !username || !password || !role || !ROLES[role] || password.length < 6) {
+    return res.redirect('/settings/users/new');
+  }
+  if ((db.users||[]).find(u => u.username === username.trim())) {
+    return res.redirect('/settings/users/new');
+  }
+  const { hash, salt } = hashPassword(password);
+  const newUser = {
+    id: newId('u'), username: username.trim(), name: name.trim(),
+    role, active: true, salt, hash, created_at: new Date().toISOString()
+  };
+  db.users.push(newUser);
+  log(db, req.session.user.id, 'إضافة مستخدم',
+    newUser.name + ' — ' + ROLES[role], { module: 'settings', type: 'create', after: role });
+  save(db);
+  res.redirect('/settings/users');
+});
+app.post('/users/:id/delete', requireAuth, requireSection('users'), (req, res) => {
+  if (req.session.user.role !== 'admin') return res.redirect('/settings/users');
+  const db = load();
+  const target = (db.users||[]).find(u => u.id === req.params.id);
+  if (target && target.id !== req.session.user.id) {
     db.users = db.users.filter(u => u.id !== req.params.id);
+    log(db, req.session.user.id, 'حذف مستخدم', target.name,
+      { module: 'settings', type: 'delete' });
     save(db);
   }
-  res.redirect('/users');
+  res.redirect('/settings/users');
 });
 
 // ---------- REPORTS (simple, part of dashboard) ----------

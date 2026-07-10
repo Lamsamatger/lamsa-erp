@@ -43,7 +43,7 @@
     <a class="nav-link <%= path.startsWith('/accounts')?'active':'' %>" href="/accounts">💰 الحسابات</a>
     <a class="nav-link <%= path.startsWith('/reports')?'active':'' %>" href="/reports">📈 التقارير</a>
     <% if (user.role === 'admin') { %>
-    <a class="nav-link <%= path.startsWith('/users')?'active':'' %>" href="/users">👤 المستخدمون</a>
+    <a class="nav-link <%= (path.startsWith('/settings')||path.startsWith('/users'))?'active':'' %>" href="/settings">⚙️ الإعدادات</a>
     <% } %>
   </nav>
   <main class="content">

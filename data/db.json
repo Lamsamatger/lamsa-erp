@@ -1,6 +1,44 @@
 {
   "meta": {
-    "orderSeq": 1012
+    "orderSeq": 1012,
+    "settings": {
+      "company": {
+        "name": "لمسة أزيائي",
+        "address": "الرياض",
+        "phone": "0500000000",
+        "email": "info@lamsa.com",
+        "taxNumber": "123456789",
+        "website": ""
+      },
+      "security": {
+        "hideCustomerFromProduction": true,
+        "sessionTimeout": "480"
+      },
+      "barcode": {
+        "type": "QR",
+        "size": "medium",
+        "showName": true,
+        "showOrder": true,
+        "showSize": true,
+        "showColor": false
+      },
+      "printing": {
+        "paper": "A4",
+        "logo": true,
+        "headerNote": ""
+      },
+      "language": {
+        "currency": "SAR",
+        "dateFormat": "DD/MM/YYYY"
+      },
+      "notifications": {
+        "lowStock": true,
+        "delay": true
+      },
+      "backup": {
+        "lastExport": null
+      }
+    }
   },
   "users": [
     {
@@ -462,6 +500,50 @@
     }
   ],
   "activity_logs": [
+    {
+      "id": "log_8b4b2d849b5a",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:28:21.868Z"
+    },
+    {
+      "id": "log_19e98e7ebbdc",
+      "user_id": "u1",
+      "action": "تعديل إعدادات النظام",
+      "details": "قسم: security",
+      "module": "settings",
+      "action_type": "update",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:26:16.073Z"
+    },
+    {
+      "id": "log_d14c92bfe2f1",
+      "user_id": "u1",
+      "action": "تعديل إعدادات النظام",
+      "details": "قسم: company",
+      "module": "settings",
+      "action_type": "update",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:26:16.064Z"
+    },
+    {
+      "id": "log_fc7c32434f6b",
+      "user_id": "u1",
+      "action": "إضافة مستخدم",
+      "details": "موظف جديد — موظف التجهيز",
+      "module": "settings",
+      "action_type": "create",
+      "before": null,
+      "after": "prep",
+      "at": "2026-07-10T18:26:16.044Z"
+    },
     {
       "id": "log_fc75b2334e85",
       "user_id": "u1",
