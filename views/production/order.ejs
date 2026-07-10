@@ -1,0 +1,678 @@
+<%- include('../partials/head', {title: title}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; }
+
+/* ── Topbar ── */
+.prod-topbar { background:var(--navy); color:#fff; border-radius:14px; margin-bottom:16px; padding:13px 16px; display:flex; align-items:center; gap:10px; }
+.prod-topbar .back-btn { background:rgba(255,255,255,.12); border:none; border-radius:9px; width:38px; height:38px; color:#fff; display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:1rem; flex-shrink:0; }
+.prod-topbar .back-btn:hover { background:rgba(255,255,255,.22); }
+.prod-topbar .order-num { font-family:monospace; font-weight:900; font-size:1.05rem; flex:1; }
+.prod-topbar .st-badge { padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; }
+
+/* ── Summary hero ── */
+.summary-card { background:#fff; border-radius:16px; padding:18px 20px; box-shadow:0 2px 12px rgba(0,0,0,.07); margin-bottom:16px; }
+.summary-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
+.ss-item { text-align:center; padding:10px 8px; border-left:1px solid #f0f0f0; }
+.ss-item:last-child { border-left:none; }
+.ss-num { font-size:1.5rem; font-weight:900; color:var(--navy); line-height:1; }
+.ss-lbl { font-size:.68rem; color:#888; margin-top:3px; }
+.prog-bar-bg { height:10px; background:#e5e7eb; border-radius:20px; overflow:hidden; margin:8px 0 4px; }
+.prog-bar-fill { height:100%; border-radius:20px; background:linear-gradient(90deg,var(--green),var(--gold)); transition:width .6s; }
+
+/* ── Tab nav ── */
+.prod-tabs { display:flex; gap:0; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:16px; overflow-x:auto; scrollbar-width:none; }
+.prod-tabs::-webkit-scrollbar { display:none; }
+.prod-tab { flex:1; min-width:80px; padding:13px 10px; text-align:center; text-decoration:none; color:#666; font-size:.8rem; font-weight:700; border-bottom:3px solid transparent; white-space:nowrap; transition:all .15s; }
+.prod-tab:hover { color:var(--navy); background:#f8fafc; }
+.prod-tab.active { color:var(--navy); border-bottom-color:var(--gold); background:#fffbf0; }
+.prod-tab .tab-icon { font-size:1.1rem; display:block; margin-bottom:2px; }
+.prod-tab .tab-badge { display:inline-block; background:var(--red); color:#fff; border-radius:10px; font-size:.62rem; padding:1px 5px; margin-right:2px; }
+
+/* ── Tab panels ── */
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* ── Section card ── */
+.sec-card { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:14px; overflow:hidden; }
+.sec-hd { padding:13px 16px; background:#f8fafc; border-bottom:1px solid #eef0f4; font-weight:800; font-size:.88rem; color:var(--navy); display:flex; align-items:center; gap:7px; }
+.sec-bd { padding:16px; }
+
+/* ── Stage track (horizontal pills) ── */
+.stage-track { padding:14px 16px; display:flex; gap:0; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+.stage-track::-webkit-scrollbar { display:none; }
+.stage-pill { display:flex; flex-direction:column; align-items:center; min-width:72px; text-align:center; position:relative; }
+.stage-pill:not(:last-child)::after { content:''; position:absolute; top:16px; right:-16px; width:32px; height:2px; background:#d1d5db; }
+.stage-pill:not(:last-child).done::after { background:var(--green); }
+.stage-pill:not(:last-child).current::after { background:linear-gradient(90deg,var(--gold),#d1d5db); }
+.sp-dot { width:32px; height:32px; border-radius:50%; border:2.5px solid #d1d5db; background:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; margin-bottom:5px; flex-shrink:0; }
+.stage-pill.done .sp-dot   { background:var(--green); border-color:var(--green); color:#fff; }
+.stage-pill.current .sp-dot { background:var(--gold); border-color:var(--gold); color:#fff; box-shadow:0 0 0 4px rgba(201,162,75,.2); }
+.sp-lbl { font-size:.62rem; color:#888; line-height:1.2; }
+.stage-pill.done .sp-lbl    { color:var(--green); font-weight:700; }
+.stage-pill.current .sp-lbl { color:var(--gold); font-weight:800; }
+
+/* ── Stage items grid ── */
+.item-stage-grid { display:grid; gap:10px; }
+.item-stage-card { background:#fff; border:1.5px solid #e8ecf4; border-radius:12px; padding:12px 14px; display:flex; align-items:center; gap:12px; }
+.item-stage-card.done { border-color:#bbf7d0; background:#f0fdf4; }
+.isc-dot { width:10px; height:10px; border-radius:50%; background:#d1d5db; flex-shrink:0; }
+.item-stage-card.done .isc-dot { background:var(--green); }
+.item-stage-card .isc-info { flex:1; min-width:0; }
+.isc-name { font-weight:700; font-size:.88rem; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.isc-meta { font-size:.75rem; color:#888; margin-top:2px; }
+.isc-stage { font-size:.75rem; font-weight:700; padding:3px 9px; border-radius:20px; background:#f0f4ff; color:var(--navy); border:1px solid #d0daff; }
+.isc-stage.done { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+
+/* Stage advance button */
+.btn-advance { padding:14px; border-radius:12px; border:none; width:100%; background:linear-gradient(135deg,var(--green),#059669); color:#fff; font-weight:800; font-size:.95rem; font-family:'Tajawal',sans-serif; cursor:pointer; margin-bottom:10px; transition:opacity .15s; }
+.btn-advance:hover { opacity:.9; }
+.btn-advance.done-state { background:linear-gradient(135deg,#6b7280,#4b5563); cursor:default; }
+.bulk-stage-form { display:flex; gap:8px; margin-top:10px; }
+
+/* ── Workshop job cards ── */
+.wjob-card { background:#fff; border:1.5px solid #e8ecf4; border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+.wjob-card.active { border-color:var(--gold); background:#fffbf0; }
+.wjob-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.wjob-name { font-weight:800; color:var(--navy); font-size:.95rem; }
+.wjob-stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin:10px 0; }
+.ws-stat { text-align:center; }
+.ws-stat-num { font-size:1.3rem; font-weight:900; color:var(--navy); }
+.ws-stat-lbl { font-size:.7rem; color:#888; }
+
+/* ── Embroidery ── */
+.emb-card { background:#fff; border:1.5px solid #e8ecf4; border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+.emb-card.active { border-color:#c4b5fd; background:#faf5ff; }
+.emb-progress-bar { height:8px; background:#e5e7eb; border-radius:10px; overflow:hidden; margin-top:6px; }
+.emb-progress-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,#8b5cf6,#c4b5fd); }
+
+/* ── QC records ── */
+.qc-summary { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:16px; }
+.qc-tile { border-radius:12px; padding:14px; text-align:center; }
+.qc-tile.accepted { background:#d1fae5; }
+.qc-tile.rejected { background:#fee2e2; }
+.qc-tile.rework   { background:#fef3c7; }
+.qc-tile-num { font-size:1.6rem; font-weight:900; color:var(--navy); }
+.qc-tile-lbl { font-size:.72rem; color:#555; }
+.qc-item { background:#fff; border:1px solid #f0f0f0; border-radius:10px; padding:11px 14px; margin-bottom:8px; font-size:.85rem; }
+.qc-item-row { display:flex; gap:12px; flex-wrap:wrap; }
+
+/* ── Error log ── */
+.err-card { border-radius:12px; padding:13px 15px; margin-bottom:10px; border:1.5px solid; }
+.err-card.open     { background:#fff8f8; border-color:#fecaca; }
+.err-card.resolved { background:#f0fdf4; border-color:#bbf7d0; opacity:.8; }
+.err-card-top { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.err-type-badge { padding:4px 12px; border-radius:20px; font-size:.75rem; font-weight:700; background:#fee2e2; color:#991b1b; }
+.err-card.resolved .err-type-badge { background:#d1fae5; color:#065f46; }
+
+/* ── Forms ── */
+.form-panel { background:#f8fafc; border-radius:12px; border:1.5px solid #e0e8f4; padding:16px; margin-top:14px; }
+.form-panel h6 { font-weight:800; font-size:.88rem; color:var(--navy); margin-bottom:12px; }
+.form-label { font-size:.8rem; font-weight:600; color:#555; }
+
+/* ── Activity log ── */
+.log-item { padding:12px 16px; border-bottom:1px solid #f5f5f5; display:flex; gap:12px; }
+.log-item:last-child { border-bottom:none; }
+.log-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--navy),#2d4a6e); color:var(--gold); font-size:.9rem; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.log-body { flex:1; min-width:0; }
+.log-action { font-weight:700; font-size:.83rem; color:var(--navy); }
+.log-detail { font-size:.75rem; color:#666; margin-top:1px; }
+.log-meta { font-size:.68rem; color:#aaa; margin-top:3px; }
+
+/* Scanner link */
+.scanner-link { display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border-radius:12px; background:linear-gradient(135deg,var(--navy),#2d4a6e); color:#fff; font-weight:700; font-size:.92rem; text-decoration:none; margin-bottom:14px; transition:opacity .15s; }
+.scanner-link:hover { opacity:.9; color:#fff; }
+
+@media (max-width:576px) {
+  .summary-stats { grid-template-columns:1fr 1fr; }
+  .ss-item:nth-child(2) { border-left:none; }
+  .qc-summary { grid-template-columns:1fr 1fr 1fr; }
+  .qc-tile-num { font-size:1.3rem; }
+}
+</style>
+
+<%
+var activeTab = (typeof tab !== 'undefined' ? tab : 'stages');
+// Compute current order-level stage index
+var curStageIdx = ITEM_STAGES.indexOf(order.status);
+// Count items per stage
+var stageItemCounts = {};
+ITEM_STAGES.forEach(function(s) { stageItemCounts[s] = 0; });
+items.forEach(function(i) { stageItemCounts[i.stage] = (stageItemCounts[i.stage]||0) + i.qty; });
+// Next stage for advance button
+var nextOrderStage = (curStageIdx >= 0 && curStageIdx < ITEM_STAGES.length - 1) ? ITEM_STAGES[curStageIdx + 1] : null;
+// Open errors count
+var openErrCount = errors.filter(function(e){return !e.resolved}).length;
+%>
+
+<!-- ── Topbar ── -->
+<div class="prod-topbar">
+  <a href="/production" class="back-btn" title="العودة للإنتاج">←</a>
+  <div class="order-num"><%= order.order_number %></div>
+  <% if (late) { %><span class="poc-late me-1" style="padding:4px 10px;background:#fef3c7;color:#92400e;border-radius:20px;font-size:.72rem;font-weight:700;">⏰ متأخر <%= daysSince %> يوم</span><% } %>
+  <span class="st-badge bg-<%= STATUS_COLORS[order.status]||'secondary' %>"><%= order.status %></span>
+</div>
+
+<!-- ── Summary hero ── -->
+<div class="summary-card">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <span style="font-size:.8rem;color:#888;font-weight:600">تقدم الإنتاج</span>
+    <span style="font-size:1.1rem;font-weight:900;color:<%= progressPct===100?'var(--green)':'var(--gold)' %>"><%= progressPct %>%</span>
+  </div>
+  <div class="prog-bar-bg"><div class="prog-bar-fill" style="width:<%= progressPct %>%"></div></div>
+  <div class="summary-stats mt-3">
+    <div class="ss-item">
+      <div class="ss-num"><%= totalQty %></div>
+      <div class="ss-lbl">📦 إجمالي</div>
+    </div>
+    <div class="ss-item">
+      <div class="ss-num" style="color:var(--green)"><%= stageBreakdown['تم التنفيذ']||0 %></div>
+      <div class="ss-lbl">✅ منجزة</div>
+    </div>
+    <div class="ss-item">
+      <div class="ss-num" style="color:var(--orange)"><%= totalQty - (stageBreakdown['تم التنفيذ']||0) %></div>
+      <div class="ss-lbl">⏳ متبقية</div>
+    </div>
+    <div class="ss-item">
+      <div class="ss-num" style="color:<%= qcTotals.rejected>0?'var(--red)':'#ccc' %>"><%= qcTotals.rejected %></div>
+      <div class="ss-lbl">❌ مرفوض</div>
+    </div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap mt-3">
+    <a href="/orders/<%= order.id %>" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;">📋 تفاصيل الطلب</a>
+    <a href="/scanner" class="btn btn-sm" style="background:var(--navy);color:#fff;font-size:.78rem;font-weight:700;">🔬 مسح QR</a>
+    <a href="/orders/<%= order.id %>/print" class="btn btn-sm btn-outline-primary" style="font-size:.78rem;">🖨️ طباعة</a>
+  </div>
+</div>
+
+<!-- ── Tab navigation ── -->
+<div class="prod-tabs">
+  <a href="?tab=stages"     class="prod-tab <%= activeTab==='stages'?'active':'' %>"><span class="tab-icon">📊</span>المراحل</a>
+  <a href="?tab=workshop"   class="prod-tab <%= activeTab==='workshop'?'active':'' %>"><span class="tab-icon">🏭</span>المشغل</a>
+  <a href="?tab=embroidery" class="prod-tab <%= activeTab==='embroidery'?'active':'' %>"><span class="tab-icon">🧵</span>التطريز</a>
+  <a href="?tab=quality"    class="prod-tab <%= activeTab==='quality'?'active':'' %>"><span class="tab-icon">🔍</span>الجودة</a>
+  <a href="?tab=errors"     class="prod-tab <%= activeTab==='errors'?'active':'' %>">
+    <span class="tab-icon">⚠️</span>الأخطاء
+    <% if (openErrCount > 0) { %><span class="tab-badge"><%= openErrCount %></span><% } %>
+  </a>
+  <a href="?tab=log"        class="prod-tab <%= activeTab==='log'?'active':'' %>"><span class="tab-icon">📜</span>السجل</a>
+</div>
+
+
+<!-- ════════════════════════════════ -->
+<!-- TAB: STAGES                     -->
+<!-- ════════════════════════════════ -->
+<div class="tab-panel <%= activeTab==='stages'?'active':'' %>">
+
+  <!-- Stage track -->
+  <div class="sec-card">
+    <div class="sec-hd">📊 مراحل الإنتاج</div>
+    <div class="stage-track">
+      <% ITEM_STAGES.forEach(function(s, i) {
+        var itemsAtStage = stageItemCounts[s] || 0;
+        var isDone    = i < curStageIdx;
+        var isCurrent = (order.status === s) || (curStageIdx === -1 && i === 0);
+        var cls = isDone ? 'done' : (isCurrent ? 'current' : '');
+        var icon = isDone ? '✓' : (isCurrent ? '●' : (i+1));
+      %>
+      <div class="stage-pill <%= cls %>">
+        <div class="sp-dot"><%= icon %></div>
+        <div class="sp-label"><%= s %></div>
+        <% if (itemsAtStage > 0) { %><div style="font-size:.62rem;color:var(--gold);font-weight:700;margin-top:2px;"><%= itemsAtStage %>ق</div><% } %>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+
+  <!-- Advance order status -->
+  <div class="sec-card">
+    <div class="sec-hd">⚡ تحديث حالة الطلب</div>
+    <div class="sec-bd">
+      <% if (nextOrderStage) { %>
+      <form method="POST" action="/orders/<%= order.id %>/status">
+        <input type="hidden" name="status" value="<%= nextOrderStage %>">
+        <input type="hidden" name="redirect" value="/production/order/<%= order.id %>?tab=stages">
+        <button type="submit" class="btn-advance">⬅ الخطوة التالية — <%= nextOrderStage %></button>
+      </form>
+      <% } else { %>
+      <div class="btn-advance done-state">✅ الطلب مكتمل</div>
+      <% } %>
+      
+      <!-- Status selector -->
+      <form method="POST" action="/orders/<%= order.id %>/status" class="d-flex gap-2 mt-2 flex-wrap">
+        <input type="hidden" name="redirect" value="/production/order/<%= order.id %>?tab=stages">
+        <select name="status" class="form-select form-select-sm flex-grow-1">
+          <% ORDER_STATUSES.forEach(function(s){ %>
+          <option value="<%= s %>" <%= order.status===s?'selected':'' %>><%= s %></option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn btn-sm btn-brand" style="white-space:nowrap">تحديث الحالة</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bulk item stage update -->
+  <div class="sec-card">
+    <div class="sec-hd">📦 تحديث مرحلة جميع القطع</div>
+    <div class="sec-bd">
+      <form method="POST" action="/production/order/<%= order.id %>/items/stage" class="d-flex gap-2 flex-wrap">
+        <select name="stage" class="form-select flex-grow-1">
+          <% ITEM_STAGES.forEach(function(s){ %>
+          <option value="<%= s %>"><%= s %></option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn btn-brand" style="white-space:nowrap">تطبيق على الكل</button>
+      </form>
+      <div class="text-muted mt-1" style="font-size:.75rem;">ℹ️ يُحدِّث مرحلة جميع قطع هذا الطلب دفعةً واحدة</div>
+    </div>
+  </div>
+
+  <!-- Item cards -->
+  <div class="sec-card">
+    <div class="sec-hd">🗂️ القطع الفردية (<%= items.length %> قطعة)</div>
+    <div class="sec-bd">
+      <div class="item-stage-grid">
+        <% items.forEach(function(it) {
+          var isDoneItem = it.stage === 'تم التنفيذ';
+        %>
+        <div class="item-stage-card <%= isDoneItem?'done':'' %>">
+          <div class="isc-dot"></div>
+          <div class="isc-info">
+            <div class="isc-name"><%= it.product_name %></div>
+            <div class="isc-meta">
+              <% if (it.size) { %><%= it.size %> · <% } %>
+              <% if (it.color) { %><%= it.color %> · <% } %>
+              الكمية: <%= it.qty %>
+              <% if (it.embroidery_name) { %> · 🧵 <%= it.embroidery_name %><% } %>
+            </div>
+            <div class="isc-meta" dir="ltr" style="font-family:monospace"><%= it.barcode %></div>
+          </div>
+          <div>
+            <span class="isc-stage <%= isDoneItem?'done':'' %>"><%= it.stage||'تجهيز' %></span>
+            <div class="mt-2">
+              <a href="/scanner/item/<%= encodeURIComponent(it.barcode) %>" class="btn btn-xs btn-outline-primary" style="font-size:.7rem;padding:2px 8px;">🔬 مسح</a>
+            </div>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ════════════════════════════════ -->
+<!-- TAB: WORKSHOP                   -->
+<!-- ════════════════════════════════ -->
+<div class="tab-panel <%= activeTab==='workshop'?'active':'' %>">
+
+  <!-- Active / past workshop jobs -->
+  <% if (!workshopJobs.length) { %>
+  <div class="sec-card">
+    <div class="sec-bd text-center py-3" style="color:#888;font-size:.88rem;">
+      <div style="font-size:2.5rem;margin-bottom:8px">🏭</div>
+      لم يُعيَّن مشغل لهذا الطلب بعد
+    </div>
+  </div>
+  <% } else { %>
+    <% workshopJobs.forEach(function(j, idx) {
+       var isActive = j.status === 'عند المشغل';
+       var rcvPct = j.delivered_qty > 0 ? Math.round(j.received_qty / j.delivered_qty * 100) : 0;
+    %>
+    <div class="sec-card">
+      <div class="sec-hd d-flex justify-content-between">
+        <span>🏭 <%= j.workshop.name %></span>
+        <span class="badge bg-<%= isActive?'warning text-dark':'success' %>"><%= j.status %></span>
+      </div>
+      <div class="sec-bd">
+        <div class="wjob-stats">
+          <div class="ws-stat">
+            <div class="ws-stat-num"><%= j.delivered_qty %></div>
+            <div class="ws-stat-lbl">أُرسل</div>
+          </div>
+          <div class="ws-stat">
+            <div class="ws-stat-num"><%= j.received_qty %></div>
+            <div class="ws-stat-lbl">استُلم</div>
+          </div>
+          <div class="ws-stat">
+            <div class="ws-stat-num" style="color:<%= rcvPct===100?'var(--green)':'var(--orange)' %>"><%= rcvPct %>%</div>
+            <div class="ws-stat-lbl">الإنجاز</div>
+          </div>
+        </div>
+        <div style="height:6px;background:#e5e7eb;border-radius:10px;overflow:hidden;margin:8px 0 12px;">
+          <div style="height:100%;width:<%= rcvPct %>%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:10px;transition:width .5s"></div>
+        </div>
+        <div class="d-flex gap-4 text-muted" style="font-size:.75rem;">
+          <% if (j.delivered_at) { %><span>📤 <%= new Date(j.delivered_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></span><% } %>
+          <% if (j.received_at) { %><span>📥 <%= new Date(j.received_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></span><% } %>
+        </div>
+
+        <% if (isActive) { %>
+        <!-- Receive form -->
+        <div class="form-panel mt-3">
+          <h6>📥 تسجيل الاستلام من المشغل</h6>
+          <form method="POST" action="/production/order/<%= order.id %>/workshop-receive" class="d-flex gap-2 flex-wrap align-items-end">
+            <input type="hidden" name="job_id" value="<%= j.id %>">
+            <div class="flex-grow-1">
+              <label class="form-label">عدد القطع المستلمة</label>
+              <input type="number" name="received_qty" class="form-control" min="0" max="<%= j.delivered_qty %>" value="<%= j.delivered_qty %>" required>
+            </div>
+            <button type="submit" class="btn btn-brand">تسجيل الاستلام ✓</button>
+          </form>
+        </div>
+        <% } %>
+      </div>
+    </div>
+    <% }) %>
+  <% } %>
+
+  <!-- Assign new workshop -->
+  <div class="sec-card">
+    <div class="sec-hd">🆕 إرسال للمشغل</div>
+    <div class="sec-bd">
+      <form method="POST" action="/production/order/<%= order.id %>/workshop">
+        <div class="mb-3">
+          <label class="form-label">المشغل</label>
+          <select name="workshop_id" class="form-select" required>
+            <option value="">— اختر مشغلاً —</option>
+            <% workshops.forEach(function(w) { %>
+            <option value="<%= w.id %>"><%= w.name %> (<%= w.price_per_piece %> ر.س/قطعة)</option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">عدد القطع المُرسَلة</label>
+          <input type="number" name="qty" class="form-control" min="1" value="<%= totalQty %>" placeholder="عدد القطع">
+        </div>
+        <button type="submit" class="btn btn-brand w-100">إرسال للمشغل 📤</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ════════════════════════════════ -->
+<!-- TAB: EMBROIDERY                 -->
+<!-- ════════════════════════════════ -->
+<div class="tab-panel <%= activeTab==='embroidery'?'active':'' %>">
+
+  <% if (!embJobs.length) { %>
+  <div class="sec-card">
+    <div class="sec-bd text-center py-3" style="color:#888;font-size:.88rem;">
+      <div style="font-size:2.5rem;margin-bottom:8px">🧵</div>
+      لم يُعيَّن مطرز لهذا الطلب بعد
+    </div>
+  </div>
+  <% } else { %>
+    <% embJobs.forEach(function(j) {
+       var embPct = j.received_qty > 0 ? Math.round(j.done_qty / j.received_qty * 100) : 0;
+       var isActive = j.done_qty < j.received_qty;
+    %>
+    <div class="sec-card">
+      <div class="sec-hd d-flex justify-content-between">
+        <span>🧵 <%= j.embroiderer.name %></span>
+        <span class="badge bg-<%= isActive?'purple':'success' %>" style="<%= isActive?'background:#7c3aed!important':'' %>"><%= isActive?'جارٍ':'منجز' %></span>
+      </div>
+      <div class="sec-bd">
+        <div class="d-flex gap-4 mb-2">
+          <div><div style="font-size:1.3rem;font-weight:900;color:var(--navy)"><%= j.received_qty %></div><div style="font-size:.72rem;color:#888">استُلم</div></div>
+          <div><div style="font-size:1.3rem;font-weight:900;color:var(--green)"><%= j.done_qty %></div><div style="font-size:.72rem;color:#888">منجز</div></div>
+          <div><div style="font-size:1.3rem;font-weight:900;color:var(--red)"><%= j.errors||0 %></div><div style="font-size:.72rem;color:#888">أخطاء</div></div>
+          <div><div style="font-size:1.3rem;font-weight:900;color:var(--gold)"><%= embPct %>%</div><div style="font-size:.72rem;color:#888">الإنجاز</div></div>
+        </div>
+        <div class="emb-progress-bar"><div class="emb-progress-fill" style="width:<%= embPct %>%"></div></div>
+        <% if (j.notes) { %><div class="mt-2 text-muted" style="font-size:.82rem;">📝 <%= j.notes %></div><% } %>
+        <% if (j.created_at) { %><div class="text-muted mt-1" style="font-size:.72rem;">📅 <%= new Date(j.created_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %></div><% } %>
+
+        <!-- Update form -->
+        <div class="form-panel mt-3">
+          <h6>✏️ تحديث تقدم التطريز</h6>
+          <form method="POST" action="/production/order/<%= order.id %>/embroidery-update">
+            <input type="hidden" name="job_id" value="<%= j.id %>">
+            <div class="row g-2 mb-2">
+              <div class="col-4">
+                <label class="form-label">منجز</label>
+                <input type="number" name="done_qty" class="form-control" min="0" max="<%= j.received_qty %>" value="<%= j.done_qty %>">
+              </div>
+              <div class="col-4">
+                <label class="form-label">أخطاء</label>
+                <input type="number" name="errors" class="form-control" min="0" value="<%= j.errors||0 %>">
+              </div>
+              <div class="col-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-brand w-100">حفظ</button>
+              </div>
+            </div>
+            <div>
+              <label class="form-label">ملاحظات</label>
+              <input type="text" name="notes" class="form-control" value="<%= j.notes||'' %>" placeholder="ملاحظات التطريز...">
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+  <% } %>
+
+  <!-- Assign new embroiderer -->
+  <div class="sec-card">
+    <div class="sec-hd">🆕 إسناد للمطرز</div>
+    <div class="sec-bd">
+      <form method="POST" action="/production/order/<%= order.id %>/embroiderer">
+        <div class="mb-3">
+          <label class="form-label">المطرز</label>
+          <select name="embroiderer_id" class="form-select" required>
+            <option value="">— اختر مطرزاً —</option>
+            <% embroiderers.forEach(function(e) { %>
+            <option value="<%= e.id %>"><%= e.name %> (<%= e.price_per_piece %> ر.س/قطعة)</option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">عدد القطع</label>
+          <input type="number" name="qty" class="form-control" min="1" value="<%= totalQty %>" placeholder="عدد القطع">
+        </div>
+        <button type="submit" class="btn btn-brand w-100">إسناد للمطرز 🧵</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ════════════════════════════════ -->
+<!-- TAB: QUALITY CONTROL            -->
+<!-- ════════════════════════════════ -->
+<div class="tab-panel <%= activeTab==='quality'?'active':'' %>">
+
+  <!-- QC Summary tiles -->
+  <div class="qc-summary mb-3">
+    <div class="qc-tile accepted">
+      <div class="qc-tile-num" style="color:var(--green)"><%= qcTotals.accepted %></div>
+      <div class="qc-tile-lbl">✅ مقبول</div>
+    </div>
+    <div class="qc-tile rejected">
+      <div class="qc-tile-num" style="color:var(--red)"><%= qcTotals.rejected %></div>
+      <div class="qc-tile-lbl">❌ مرفوض</div>
+    </div>
+    <div class="qc-tile rework">
+      <div class="qc-tile-num" style="color:var(--orange)"><%= qcTotals.rework %></div>
+      <div class="qc-tile-lbl">🔄 إعادة عمل</div>
+    </div>
+  </div>
+
+  <!-- Past QC records -->
+  <% if (qcRecords.length) { %>
+  <div class="sec-card">
+    <div class="sec-hd">📋 سجل مراقبة الجودة</div>
+    <div class="sec-bd p-0">
+      <% qcRecords.slice().reverse().forEach(function(r) { %>
+      <div class="qc-item">
+        <div class="qc-item-row">
+          <span style="color:var(--green);font-weight:700">✅ <%= r.accepted_qty %> مقبول</span>
+          <span style="color:var(--red);font-weight:700">❌ <%= r.rejected_qty %> مرفوض</span>
+          <span style="color:var(--orange);font-weight:700">🔄 <%= r.rework_qty %> إعادة</span>
+        </div>
+        <% if (r.notes) { %><div class="text-muted mt-1" style="font-size:.78rem;">📝 <%= r.notes %></div><% } %>
+        <div class="text-muted mt-1" style="font-size:.72rem;">📅 <%= new Date(r.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %> <%= new Date(r.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) %></div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- New QC record form -->
+  <div class="sec-card">
+    <div class="sec-hd">🔍 تسجيل فحص جودة جديد</div>
+    <div class="sec-bd">
+      <form method="POST" action="/production/order/<%= order.id %>/qc">
+        <div class="row g-2 mb-3">
+          <div class="col-4">
+            <label class="form-label">✅ قطع مقبولة</label>
+            <input type="number" name="accepted_qty" class="form-control" min="0" value="0" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label">❌ قطع مرفوضة</label>
+            <input type="number" name="rejected_qty" class="form-control" min="0" value="0" required>
+          </div>
+          <div class="col-4">
+            <label class="form-label">🔄 إعادة عمل</label>
+            <input type="number" name="rework_qty" class="form-control" min="0" value="0" required>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">ملاحظات الجودة</label>
+          <textarea name="notes" class="form-control" rows="2" placeholder="سبب الرفض أو أي ملاحظات..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-brand w-100">تسجيل فحص الجودة 🔍</button>
+      </form>
+      <div class="text-muted mt-2" style="font-size:.75rem;">ℹ️ إذا لم يكن هناك مرفوضات، سيُحدَّث الطلب تلقائياً إلى "جاهز للتغليف"</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ════════════════════════════════ -->
+<!-- TAB: ERRORS & DELAYS            -->
+<!-- ════════════════════════════════ -->
+<div class="tab-panel <%= activeTab==='errors'?'active':'' %>">
+
+  <% if (errors.length) { %>
+  <div class="sec-card">
+    <div class="sec-hd d-flex justify-content-between">
+      <span>⚠️ سجل الأخطاء</span>
+      <span class="badge bg-danger"><%= openErrCount %> مفتوح</span>
+    </div>
+    <div class="sec-bd p-2">
+      <% errors.slice().reverse().forEach(function(e) { %>
+      <div class="err-card <%= e.resolved?'resolved':'open' %>">
+        <div class="err-card-top">
+          <div class="flex-grow-1">
+            <span class="err-type-badge"><%= e.error_type %></span>
+            <% if (e.department) { %><span class="badge bg-secondary ms-1" style="font-size:.7rem;"><%= e.department %></span><% } %>
+            <% if (e.reason) { %><div class="mt-1" style="font-size:.82rem;color:#333;"><%= e.reason %></div><% } %>
+            <div class="text-muted mt-1" style="font-size:.72rem;">📅 <%= new Date(e.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></div>
+            <% if (e.item_barcode) { %><div class="text-muted" style="font-size:.72rem;font-family:monospace;direction:ltr">📦 <%= e.item_barcode %></div><% } %>
+          </div>
+          <% if (!e.resolved) { %>
+          <form method="POST" action="/production/error/<%= e.id %>/resolve" class="me-0 ms-2">
+            <button type="submit" class="btn btn-sm btn-outline-success" style="font-size:.75rem;white-space:nowrap;">✓ حُل</button>
+          </form>
+          <% } else { %>
+          <span class="badge bg-success">محلول</span>
+          <% } %>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- Record new error -->
+  <div class="sec-card">
+    <div class="sec-hd">🆕 تسجيل خطأ إنتاجي</div>
+    <div class="sec-bd">
+      <form method="POST" action="/production/order/<%= order.id %>/error">
+        <div class="mb-3">
+          <label class="form-label">نوع الخطأ</label>
+          <select name="error_type" class="form-select" required>
+            <option value="">— اختر نوع الخطأ —</option>
+            <option>خطأ في القص</option>
+            <option>خطأ في الخياطة</option>
+            <option>خطأ في التطريز</option>
+            <option>عيب في الجودة</option>
+            <option>قياس خاطئ</option>
+            <option>لون غير مطابق</option>
+            <option>تأخر في التسليم</option>
+            <option>تلف في القماش</option>
+            <option>أخرى</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">القسم المسؤول</label>
+          <select name="department" class="form-select">
+            <option value="">— اختر القسم —</option>
+            <option>التجهيز</option>
+            <option>المشغل</option>
+            <option>المطرز</option>
+            <option>مراقبة الجودة</option>
+            <option>التغليف</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">الباركود (اختياري)</label>
+          <input type="text" name="item_barcode" class="form-control" placeholder="LMS-1007-1" dir="ltr">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">التفاصيل والسبب</label>
+          <textarea name="reason" class="form-control" rows="2" placeholder="صف المشكلة بالتفصيل..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger w-100">تسجيل الخطأ ⚠️</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ════════════════════════════════ -->
+<!-- TAB: ACTIVITY LOG               -->
+<!-- ════════════════════════════════ -->
+<div class="tab-panel <%= activeTab==='log'?'active':'' %>">
+  <div class="sec-card">
+    <div class="sec-hd">📜 سجل النشاط الكامل</div>
+    <div class="log-list">
+      <% if (!logs.length) { %>
+      <div class="text-center py-4 text-muted" style="font-size:.88rem;">
+        <div style="font-size:2rem;margin-bottom:6px">📭</div>
+        لا يوجد سجل نشاط لهذا الطلب
+      </div>
+      <% } else { %>
+        <% logs.forEach(function(l) { %>
+        <div class="log-item">
+          <div class="log-avatar"><%= l.user_name ? l.user_name.charAt(0) : '؟' %></div>
+          <div class="log-body">
+            <div class="log-action"><%= l.action %></div>
+            <% if (l.details) { %><div class="log-detail"><%= l.details %></div><% } %>
+            <div class="log-meta">
+              👤 <%= l.user_name||'غير معروف' %>
+              <% if (l.user_role) { %> · <%= l.user_role %><% } %>
+              · 🕐 <%= new Date(l.at).toLocaleDateString('ar-SA',{calendar:'gregory',year:'numeric',month:'short',day:'numeric'}) %>
+              <%= new Date(l.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) %>
+            </div>
+          </div>
+        </div>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Scanner link -->
+<a href="/scanner" class="scanner-link mt-2">
+  🔬 <span>فتح ماسح QR للإنتاج</span>
+</a>
+
+<%- include('../partials/foot') %>

@@ -1,0 +1,220 @@
+<%- include('../partials/head', {title: 'ماسح الإنتاج'}) %>
+
+<style>
+/* ── Scanner page — mobile-first ── */
+.scanner-page { max-width:520px; margin:0 auto; }
+
+.scanner-hero {
+  background:linear-gradient(135deg,#1a2d4a 0%,#0e1d30 100%);
+  border-radius:16px; padding:24px 20px 20px;
+  text-align:center; color:#fff; margin-bottom:16px;
+  position:relative; overflow:hidden;
+}
+.scanner-hero::before {
+  content:''; position:absolute; inset:0;
+  background:url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(201,162,75,0.08)' stroke-width='1'%3E%3Crect x='2' y='2' width='36' height='36'/%3E%3C/g%3E%3C/svg%3E");
+}
+.scanner-hero-icon { font-size:2.8rem; margin-bottom:8px; }
+.scanner-hero h5 { font-weight:900; font-size:1.15rem; margin:0 0 4px; }
+.scanner-hero p { opacity:.7; font-size:.85rem; margin:0; }
+
+/* Camera area */
+.cam-area {
+  border-radius:16px; overflow:hidden; margin-bottom:12px;
+  background:#000; min-height:240px; position:relative;
+}
+.cam-area #reader { border-radius:16px; }
+.cam-area #reader video { border-radius:16px; object-fit:cover; }
+#reader__scan_region img { display:none !important; }
+#html5-qrcode-button-camera-start,
+#html5-qrcode-button-camera-stop,
+#html5-qrcode-button-file-selection { min-height:44px; font-size:.9rem; }
+
+.cam-placeholder {
+  background:linear-gradient(135deg,#0e1d30 0%,#1a2d4a 100%);
+  border:2px dashed rgba(201,162,75,.4); border-radius:16px;
+  padding:48px 24px; text-align:center; cursor:pointer;
+  transition:all .2s;
+}
+.cam-placeholder:hover { border-color:#c9a24b; }
+.cam-placeholder .icon { font-size:3rem; margin-bottom:12px; opacity:.7; }
+.cam-placeholder p { color:rgba(255,255,255,.7); margin:0; font-size:.9rem; }
+
+.btn-cam {
+  width:100%; padding:16px; border-radius:14px; font-size:1rem;
+  font-weight:700; border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  transition:all .2s; font-family:'Tajawal',sans-serif;
+}
+.btn-cam-open  { background:#c9a24b; color:#fff; }
+.btn-cam-open:hover  { background:#b8902f; }
+.btn-cam-close { background:#dc3545; color:#fff; }
+.btn-cam-close:hover { background:#bb2d3b; }
+
+/* Manual entry */
+.manual-section {
+  background:#fff; border-radius:16px;
+  box-shadow:0 2px 12px rgba(0,0,0,.07);
+  padding:20px; margin-bottom:16px;
+}
+.manual-section h6 { font-weight:700; color:#1a2d4a; margin-bottom:14px; }
+.manual-input {
+  width:100%; padding:14px 16px; border-radius:12px;
+  border:2px solid #e0e0e0; font-size:1.05rem; font-family:'Tajawal',sans-serif;
+  text-align:center; background:#f8f9fa; transition:border-color .15s;
+  direction:ltr; letter-spacing:1px;
+}
+.manual-input:focus { outline:none; border-color:#c9a24b; background:#fff; }
+.btn-manual {
+  width:100%; padding:14px; border-radius:12px; margin-top:10px;
+  background:#1a2d4a; color:#fff; border:none; font-size:.95rem;
+  font-weight:700; cursor:pointer; font-family:'Tajawal',sans-serif;
+  transition:background .15s;
+}
+.btn-manual:hover { background:#0e1d30; }
+
+/* Recent history chip */
+.hint-chip {
+  display:inline-flex; align-items:center; gap:6px;
+  background:#f0f4ff; color:#1a2d4a; border-radius:8px;
+  padding:6px 12px; font-size:.82rem; font-weight:600;
+  margin:4px; cursor:pointer; border:1.5px solid #d0daff; transition:all .15s;
+}
+.hint-chip:hover { background:#1a2d4a; color:#fff; border-color:#1a2d4a; }
+
+/* Scan result flash */
+.scan-success {
+  background:#d1fae5; border:1.5px solid #10b981; border-radius:14px;
+  padding:14px 16px; margin-bottom:12px;
+  display:flex; align-items:center; gap:12px;
+}
+.scan-success .icon { font-size:1.6rem; flex-shrink:0; }
+.scan-success .code { font-family:monospace; font-weight:700; font-size:.95rem; color:#065f46; }
+.scan-success .link { color:#065f46; font-size:.82rem; font-weight:600; text-decoration:underline; }
+
+/* Error flash */
+.scan-error {
+  background:#fee2e2; border:1.5px solid #ef4444; border-radius:14px;
+  padding:14px 16px; margin-bottom:12px;
+  display:flex; align-items:center; gap:10px; color:#991b1b;
+}
+</style>
+
+<div class="scanner-page">
+
+  <!-- Hero -->
+  <div class="scanner-hero">
+    <div class="scanner-hero-icon">📷</div>
+    <h5>ماسح الإنتاج</h5>
+    <p>امسح رمز QR من بطاقة التجهيز لفتح تفاصيل الإنتاج</p>
+  </div>
+
+  <!-- Error flash -->
+  <% if (error) { %>
+  <div class="scan-error">
+    <span style="font-size:1.3rem">⚠️</span>
+    <div><strong>لم يُعثر على القطعة:</strong> <%= error %></div>
+  </div>
+  <% } %>
+
+  <!-- Camera area -->
+  <div id="cam-zone" style="margin-bottom:12px">
+    <!-- Placeholder shown before camera opens -->
+    <div class="cam-placeholder" id="cam-placeholder" onclick="openCam()">
+      <div class="icon">📸</div>
+      <p>انقر لفتح الكاميرا وبدء مسح QR</p>
+    </div>
+
+    <!-- Reader div (hidden until camera opens) -->
+    <div class="cam-area" id="cam-area" style="display:none">
+      <div id="reader"></div>
+    </div>
+  </div>
+
+  <!-- Camera toggle button -->
+  <button class="btn-cam btn-cam-open mb-3" id="cam-btn" onclick="toggleCam()">
+    <span id="cam-btn-icon">📷</span>
+    <span id="cam-btn-text">تشغيل الكاميرا</span>
+  </button>
+
+  <!-- Manual entry -->
+  <div class="manual-section">
+    <h6>✏️ إدخال يدوي</h6>
+    <form id="manual-form" onsubmit="goToItem(event)">
+      <input class="manual-input" id="manual-input" type="text"
+        placeholder="LMS-1007-1" autocomplete="off" autocorrect="off"
+        spellcheck="false" autofocus>
+      <button class="btn-manual" type="submit">🔍 فتح تفاصيل القطعة</button>
+    </form>
+
+    <!-- Hint chips with demo barcodes -->
+    <div class="mt-3 d-flex flex-wrap" id="hint-chips">
+      <% if (typeof sampleBarcodes !== 'undefined') { %>
+        <% sampleBarcodes.forEach(function(b){ %>
+          <span class="hint-chip" onclick="quickScan('<%= b %>')">
+            <span>🏷️</span> <%= b %>
+          </span>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let _html5QrCode = null;
+let _camOpen = false;
+
+function openCam() {
+  document.getElementById('cam-placeholder').style.display = 'none';
+  document.getElementById('cam-area').style.display = 'block';
+  document.getElementById('cam-btn-icon').textContent = '✕';
+  document.getElementById('cam-btn-text').textContent = 'إغلاق الكاميرا';
+  document.getElementById('cam-btn').className = 'btn-cam btn-cam-close mb-3';
+  _camOpen = true;
+
+  _html5QrCode = new Html5Qrcode('reader');
+  _html5QrCode.start(
+    { facingMode: 'environment' },
+    { fps: 15, qrbox: { width: 240, height: 240 } },
+    (code) => {
+      _html5QrCode.stop().catch(() => {});
+      // Navigate immediately
+      window.location.href = '/scanner/item/' + encodeURIComponent(code.trim());
+    },
+    () => {}
+  ).catch(err => {
+    console.warn('Camera error:', err);
+    document.getElementById('cam-placeholder').style.display = 'block';
+    document.getElementById('cam-area').style.display = 'none';
+  });
+}
+
+function closeCam() {
+  if (_html5QrCode) _html5QrCode.stop().catch(() => {});
+  document.getElementById('cam-placeholder').style.display = 'block';
+  document.getElementById('cam-area').style.display = 'none';
+  document.getElementById('cam-btn-icon').textContent = '📷';
+  document.getElementById('cam-btn-text').textContent = 'تشغيل الكاميرا';
+  document.getElementById('cam-btn').className = 'btn-cam btn-cam-open mb-3';
+  _camOpen = false;
+}
+
+function toggleCam() {
+  _camOpen ? closeCam() : openCam();
+}
+
+function goToItem(e) {
+  e.preventDefault();
+  const code = document.getElementById('manual-input').value.trim();
+  if (code) window.location.href = '/scanner/item/' + encodeURIComponent(code);
+}
+
+function quickScan(code) {
+  document.getElementById('manual-input').value = code;
+  window.location.href = '/scanner/item/' + encodeURIComponent(code);
+}
+</script>
+
+<%- include('../partials/foot') %>

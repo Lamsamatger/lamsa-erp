@@ -17,17 +17,37 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Next.js Dashboard"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node server.js"
 waitForPort = 5000
 
+[[workflows.workflow]]
+name = "Next.js Dashboard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd dashboard && npm run dev"
+waitForPort = 3000
+
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
+
+[[ports]]
+localPort = 3000
+externalPort = 3001
 
 [[ports]]
 localPort = 5000

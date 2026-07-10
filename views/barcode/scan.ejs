@@ -1,69 +1,213 @@
-<%- include('../partials/head', {title: 'مسح الباركود'}) %>
+<%- include('../partials/head', {title: 'مسح QR / تحديث المرحلة'}) %>
 
-<h4 class="page-title">📷 مسح الباركود / تحديث المرحلة</h4>
+<style>
+.scan-mode-tabs { display:flex; gap:0; border-radius:10px; overflow:hidden; border:1.5px solid #1a2d4a; margin-bottom:16px; }
+.scan-mode-tab {
+  flex:1; text-align:center; padding:10px; font-weight:700; font-size:.9rem;
+  background:#fff; color:#1a2d4a; cursor:pointer; border:none;
+  transition:all .15s; font-family:'Tajawal',sans-serif;
+}
+.scan-mode-tab.active { background:#1a2d4a; color:#fff; }
+
+.scan-card {
+  background:#fff; border-radius:14px; box-shadow:0 2px 12px rgba(0,0,0,.08);
+  padding:20px; margin-bottom:16px;
+}
+
+.cam-btn {
+  display:flex; align-items:center; gap:8px; justify-content:center;
+  width:100%; padding:14px; border-radius:10px; font-size:1rem; font-weight:700;
+  border:2px dashed #c9a24b; background:#fffbf0; color:#92700a;
+  cursor:pointer; transition:all .15s; font-family:'Tajawal',sans-serif;
+}
+.cam-btn.open { background:#1a2d4a; color:#fff; border-color:#1a2d4a; border-style:solid; }
+.cam-btn:hover { opacity:.9; }
+
+#scanner-wrap { border-radius:12px; overflow:hidden; margin:12px 0; }
+#reader { border-radius:12px; }
+#reader video { border-radius:12px; }
+#reader__scan_region img { display:none; }
+
+.stage-quick-btns { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.stage-qbtn {
+  flex:1; min-width:calc(50% - 4px); padding:10px 8px; border-radius:10px;
+  border:1.5px solid #ddd; background:#f8f9fa; color:#333; font-size:.82rem;
+  font-weight:600; cursor:pointer; text-align:center; transition:all .15s;
+  font-family:'Tajawal',sans-serif;
+}
+.stage-qbtn:hover { border-color:#1a2d4a; background:#eef2ff; color:#1a2d4a; }
+.stage-qbtn.selected { border-color:#c9a24b; background:#fffbf0; color:#92700a; }
+
+.result-card {
+  border-radius:14px; overflow:hidden;
+  box-shadow:0 4px 18px rgba(0,0,0,.12); margin-bottom:16px;
+}
+.result-header {
+  background:#198754; color:#fff; padding:12px 16px;
+  display:flex; align-items:center; gap:10px;
+}
+.result-body { background:#fff; padding:16px; }
+.result-order-num { font-family:monospace; font-size:1.1rem; font-weight:900; }
+
+.event-label { font-size:.72rem; background:#e8f5e9; color:#155724; border-radius:6px; padding:2px 8px; font-weight:600; }
+
+.scanned-input {
+  background:#1a2d4a; color:#c9a24b; font-family:monospace;
+  font-size:1.1rem; font-weight:900; border:none; border-radius:8px;
+  padding:10px 14px; width:100%; text-align:center; letter-spacing:1px;
+}
+.scanned-input:focus { outline:2px solid #c9a24b; }
+</style>
+
+<h4 class="page-title">📷 مسح QR / تحديث المرحلة</h4>
 
 <% if (result) { %>
-  <div class="alert alert-success">
-    ✅ <%= result.message %> — الحالة الحالية: <strong><%= result.order.status %></strong>
-    <div class="mt-2">
-      <a href="/orders/<%= result.order.id %>" class="btn btn-sm btn-outline-success">فتح الطلب</a>
-      <a href="/search?q=<%= encodeURIComponent(result.order.order_number) %>" class="btn btn-sm btn-outline-secondary me-1">تفاصيل</a>
+<div class="result-card">
+  <div class="result-header">
+    <span style="font-size:1.4rem">✅</span>
+    <div>
+      <div class="result-order-num"><%= result.order.order_number %></div>
+      <div style="font-size:.82rem;opacity:.9;margin-top:2px"><%= result.message %></div>
+    </div>
+    <div class="ms-auto">
+      <span style="background:rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:4px 10px;font-size:.85rem;font-weight:700"><%= result.order.status %></span>
     </div>
   </div>
-<% } %>
-<% if (error) { %>
-  <div class="alert alert-danger">⚠️ <%= error %></div>
+  <div class="result-body">
+    <div class="d-flex gap-2 flex-wrap">
+      <%
+        // Only show item-detail button when code contains item suffix (e.g. LMS-1007-1)
+        const isItemCode = result.code && /^[A-Z]+-\d+-\d+$/i.test(result.code.trim());
+      %>
+      <% if (isItemCode) { %>
+      <a href="/barcode/item/<%= encodeURIComponent(result.code) %>" class="btn btn-sm btn-success">🔍 تفاصيل القطعة</a>
+      <% } %>
+      <a href="/orders/<%= result.order.id %>" class="btn btn-sm btn-outline-secondary">📦 الطلب الكامل</a>
+      <a href="/barcode" class="btn btn-sm btn-outline-secondary">↩ مسح جديد</a>
+    </div>
+  </div>
+</div>
 <% } %>
 
-<!-- Camera scanner -->
-<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
-  <div class="d-flex justify-content-between align-items-center mb-2">
-    <h6 class="mb-0 fw-bold">الكاميرا</h6>
-    <button class="btn btn-sm btn-outline-secondary" id="cam-toggle-btn" onclick="toggleBarcodeCam()">📷 فتح الكاميرا</button>
+<% if (error) { %>
+  <div class="alert alert-danger d-flex gap-2 align-items-center">
+    <span style="font-size:1.2rem">⚠️</span>
+    <div><strong>لم يتم العثور على الطلب:</strong> <%= error %></div>
   </div>
+<% } %>
+
+<!-- Mode tabs -->
+<div class="scan-mode-tabs no-print">
+  <button class="scan-mode-tab active" id="tab-item" onclick="setMode('item')">🔍 تفاصيل قطعة</button>
+  <button class="scan-mode-tab" id="tab-event" onclick="setMode('event')">🔄 تحديث حالة طلب</button>
+</div>
+
+<!-- Camera scanner card -->
+<div class="scan-card">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0 fw-bold">📷 الكاميرا</h6>
+    <small class="text-muted" id="cam-hint">انقر لفتح الكاميرا أو أدخل الباركود يدوياً</small>
+  </div>
+  <button class="cam-btn" id="cam-toggle-btn" onclick="toggleBarcodeCam()">
+    📷 فتح الكاميرا وبدء المسح
+  </button>
   <div id="scanner-wrap" style="display:none">
-    <div id="reader" class="mb-2"></div>
-    <p class="text-muted small text-center mb-0">وجّه الكاميرا نحو الباركود</p>
+    <div id="reader"></div>
+    <p class="text-muted small text-center mt-1 mb-0">وجّه الكاميرا نحو الباركود أو رمز QR</p>
   </div>
 </div>
 
-<!-- Scan form -->
-<div class="bg-white rounded-3 p-4 shadow-sm" style="max-width:520px">
-  <form method="POST" action="/barcode/scan" id="scan-form">
-    <div class="mb-3">
-      <label class="form-label fw-bold">الباركود / رقم الطلب</label>
-      <input class="form-control form-control-lg" name="code" id="barcode-input"
-        autofocus required placeholder="مثال: LMS-1007" dir="ltr" autocomplete="off">
-    </div>
-    <div class="mb-3">
-      <label class="form-label fw-bold">نوع الحدث</label>
-      <select class="form-select form-select-lg" name="event" required id="event-select">
-        <option value="out_workshop">🚚 خروج للمشغل</option>
-        <option value="in_workshop">📥 دخول من المشغل</option>
-        <option value="in_embroiderer">🧵 دخول المطرز</option>
-        <option value="ready_pack">📦 جاهز للتغليف</option>
-      </select>
-    </div>
-    <button class="btn btn-brand w-100" type="submit" style="font-size:1.1rem; padding:12px;">تسجيل الحدث</button>
-  </form>
+<!-- ── MODE 1: Item Detail ── -->
+<div id="mode-item">
+  <div class="scan-card">
+    <h6 class="fw-bold mb-3">🔍 فتح تفاصيل قطعة</h6>
+    <p class="text-muted small mb-3">امسح رمز QR من بطاقة التجهيز لفتح صفحة القطعة وتحديث مرحلة الإنتاج مباشرة.</p>
+    <form action="/barcode/item-redirect" method="GET" id="item-form">
+      <div class="mb-3">
+        <label class="form-label fw-bold">الباركود / رقم القطعة</label>
+        <input class="scanned-input" name="code" id="item-input" dir="ltr"
+          autofocus required placeholder="LMS-1007-1"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+      <button class="btn btn-brand w-100" type="submit" style="font-size:1rem;padding:12px">
+        🔍 فتح تفاصيل القطعة
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ── MODE 2: Order Event ── -->
+<div id="mode-event" style="display:none">
+  <div class="scan-card">
+    <h6 class="fw-bold mb-3">🔄 تحديث حالة الطلب</h6>
+    <form method="POST" action="/barcode/scan" id="scan-form">
+      <div class="mb-3">
+        <label class="form-label fw-bold">الباركود / رقم الطلب</label>
+        <input class="scanned-input" name="code" id="barcode-input" dir="ltr"
+          required placeholder="LMS-1007 أو LMS-1007-1"
+          autocomplete="off" autocorrect="off" spellcheck="false">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label fw-bold mb-2">نوع الحدث</label>
+        <div class="stage-quick-btns" id="event-btns">
+          <button type="button" class="stage-qbtn selected" data-val="out_workshop" onclick="pickEvent(this)">🚚 خروج للمشغل</button>
+          <button type="button" class="stage-qbtn" data-val="in_workshop" onclick="pickEvent(this)">📥 دخول من المشغل</button>
+          <button type="button" class="stage-qbtn" data-val="in_embroiderer" onclick="pickEvent(this)">🧵 عند المطرز</button>
+          <button type="button" class="stage-qbtn" data-val="ready_pack" onclick="pickEvent(this)">📦 جاهز للتغليف</button>
+        </div>
+        <input type="hidden" name="event" id="event-val" value="out_workshop">
+      </div>
+
+      <button class="btn btn-brand w-100" type="submit" style="font-size:1rem;padding:12px">
+        ✅ تسجيل الحدث
+      </button>
+    </form>
+  </div>
 </div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 let _camOpen = false;
+let _mode = 'item';   // 'item' | 'event'
+
+function setMode(m) {
+  _mode = m;
+  document.getElementById('mode-item').style.display  = m === 'item'  ? '' : 'none';
+  document.getElementById('mode-event').style.display = m === 'event' ? '' : 'none';
+  document.getElementById('tab-item').classList.toggle('active',  m === 'item');
+  document.getElementById('tab-event').classList.toggle('active', m === 'event');
+  // focus right input
+  setTimeout(() => {
+    const el = m === 'item' ? document.getElementById('item-input') : document.getElementById('barcode-input');
+    if (el) el.focus();
+  }, 50);
+}
+
+function pickEvent(btn) {
+  document.querySelectorAll('.stage-qbtn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('event-val').value = btn.dataset.val;
+}
 
 function toggleBarcodeCam() {
   if (_camOpen) { closeBarcodeCam(); return; }
   _camOpen = true;
   document.getElementById('scanner-wrap').style.display = 'block';
-  document.getElementById('cam-toggle-btn').textContent = '✕ إغلاق الكاميرا';
+  const camBtn = document.getElementById('cam-toggle-btn');
+  camBtn.textContent = '✕ إغلاق الكاميرا';
+  camBtn.classList.add('open');
 
   startCameraScanner('reader', function(code) {
     closeBarcodeCam();
-    const input = document.getElementById('barcode-input');
-    input.value = code;
-    // Auto-submit after short delay so user can see the value
-    setTimeout(() => document.getElementById('scan-form').submit(), 600);
+    if (_mode === 'item') {
+      // Navigate directly to item page
+      window.location.href = '/barcode/item/' + encodeURIComponent(code);
+    } else {
+      const input = document.getElementById('barcode-input');
+      input.value = code;
+      setTimeout(() => document.getElementById('scan-form').submit(), 500);
+    }
   });
 }
 
@@ -71,8 +215,17 @@ function closeBarcodeCam() {
   _camOpen = false;
   stopCameraScanner();
   document.getElementById('scanner-wrap').style.display = 'none';
-  document.getElementById('cam-toggle-btn').textContent = '📷 فتح الكاميرا';
+  const camBtn = document.getElementById('cam-toggle-btn');
+  camBtn.textContent = '📷 فتح الكاميرا وبدء المسح';
+  camBtn.classList.remove('open');
 }
+
+// Item form submits to /barcode/item/:code
+document.getElementById('item-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const code = document.getElementById('item-input').value.trim();
+  if (code) window.location.href = '/barcode/item/' + encodeURIComponent(code);
+});
 </script>
 
 <%- include('../partials/foot') %>

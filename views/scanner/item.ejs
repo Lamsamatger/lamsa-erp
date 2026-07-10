@@ -1,0 +1,527 @@
+<%- include('../partials/head', {title: 'إنتاج — ' + item.barcode}) %>
+
+<style>
+/* ── Production item — mobile-first ── */
+:root {
+  --stage-done:#10b981; --stage-cur:#c9a24b; --stage-todo:#d1d5db;
+  --navy:#1a2d4a; --gold:#c9a24b;
+}
+
+/* Sticky top bar */
+.prd-topbar {
+  background:#1a2d4a; color:#fff; border-radius:14px; margin-bottom:14px;
+  padding:12px 14px; display:flex; align-items:center; gap:10px;
+}
+.prd-topbar .back-btn {
+  background:rgba(255,255,255,.12); border:none; border-radius:9px;
+  width:38px; height:38px; color:#fff; font-size:1rem;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  cursor:pointer; text-decoration:none; transition:background .15s;
+}
+.prd-topbar .back-btn:hover { background:rgba(255,255,255,.22); }
+.prd-topbar .order-num { font-family:monospace; font-weight:900; font-size:1.05rem; flex:1; }
+.prd-topbar .status-badge {
+  padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; flex-shrink:0;
+}
+
+/* Hero card */
+.hero-card {
+  background:#fff; border-radius:16px; overflow:hidden;
+  box-shadow:0 2px 14px rgba(0,0,0,.08); margin-bottom:14px;
+}
+.hero-img {
+  width:100%; height:180px; object-fit:cover; background:#f4f6f9;
+  display:block;
+}
+.hero-img-placeholder {
+  width:100%; height:180px; background:linear-gradient(135deg,#1a2d4a 0%,#2d4a6e 100%);
+  display:flex; align-items:center; justify-content:center; font-size:4rem;
+}
+.hero-body { padding:16px; }
+.hero-name { font-size:1.15rem; font-weight:900; color:#1a2d4a; margin-bottom:10px; }
+.tag-row { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.tag {
+  padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700;
+  background:#f0f4ff; color:#1a2d4a; border:1.5px solid #d0daff;
+}
+.tag.size   { background:#fef3c7; border-color:#fbbf24; color:#92400e; }
+.tag.color  { background:#f5f3ff; border-color:#c4b5fd; color:#4c1d95; }
+.tag.qty    { background:#d1fae5; border-color:#6ee7b7; color:#065f46; }
+.tag.pieces { background:#fce7f3; border-color:#f9a8d4; color:#9d174d; }
+
+/* Progress */
+.progress-wrap { margin-bottom:4px; }
+.progress-bar-bg {
+  height:10px; background:#e5e7eb; border-radius:20px; overflow:hidden; margin:6px 0;
+}
+.progress-bar-fill {
+  height:100%; border-radius:20px; transition:width .5s;
+  background:linear-gradient(90deg,#10b981 0%,#c9a24b 100%);
+}
+.progress-labels {
+  display:flex; justify-content:space-between;
+  font-size:.72rem; color:#888; margin-top:2px;
+}
+
+/* Section card */
+.sec-card {
+  background:#fff; border-radius:16px;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
+  margin-bottom:14px; overflow:hidden;
+}
+.sec-title {
+  padding:12px 16px; background:#f8fafc; border-bottom:1px solid #e8ecf0;
+  font-weight:800; font-size:.88rem; color:#1a2d4a;
+  display:flex; align-items:center; gap:7px;
+}
+
+/* Stage track — horizontal pills */
+.stage-track {
+  padding:14px 16px; display:flex; gap:0; overflow-x:auto;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.stage-track::-webkit-scrollbar { display:none; }
+.stage-pill {
+  display:flex; flex-direction:column; align-items:center;
+  min-width:72px; text-align:center; position:relative;
+}
+.stage-pill:not(:last-child)::after {
+  content:''; position:absolute;
+  top:16px; right:-16px;
+  width:32px; height:2px;
+  background:var(--stage-todo);
+}
+.stage-pill:not(:last-child).done::after  { background:var(--stage-done); }
+.stage-pill:not(:last-child).current::after { background:linear-gradient(90deg,var(--stage-cur),var(--stage-todo)); }
+.sp-dot {
+  width:32px; height:32px; border-radius:50%; border:2.5px solid var(--stage-todo);
+  background:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:.85rem; margin-bottom:5px; transition:all .2s; flex-shrink:0;
+}
+.stage-pill.done   .sp-dot { background:var(--stage-done); border-color:var(--stage-done); color:#fff; }
+.stage-pill.current .sp-dot { background:var(--stage-cur); border-color:var(--stage-cur); color:#fff; box-shadow:0 0 0 4px rgba(201,162,75,.2); }
+.sp-label { font-size:.62rem; color:#888; line-height:1.2; }
+.stage-pill.done    .sp-label { color:var(--stage-done); font-weight:700; }
+.stage-pill.current .sp-label { color:var(--stage-cur); font-weight:800; }
+
+/* Info grid */
+.info-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:0;
+  padding:0;
+}
+.info-row {
+  padding:11px 16px; border-bottom:1px solid #f0f0f0;
+  display:flex; flex-direction:column; gap:2px;
+}
+.info-row:nth-child(odd) { border-left:1px solid #f0f0f0; }
+.info-row:last-child, .info-row:nth-last-child(2):nth-child(odd) { border-bottom:none; }
+.info-lbl { font-size:.7rem; color:#aaa; font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+.info-val { font-size:.88rem; font-weight:700; color:#1a2d4a; }
+.info-val.mono { font-family:monospace; font-size:.82rem; }
+.info-val.muted { color:#888; font-weight:400; }
+.info-row.full-width { grid-column:1/-1; border-left:none; }
+
+/* Actions */
+.actions-card { padding:16px; }
+.btn-next-stage {
+  width:100%; padding:16px; border-radius:14px; border:none;
+  background:linear-gradient(135deg,#10b981 0%,#059669 100%);
+  color:#fff; font-size:1rem; font-weight:800;
+  font-family:'Tajawal',sans-serif; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  margin-bottom:12px; transition:opacity .15s;
+  box-shadow:0 4px 14px rgba(16,185,129,.3);
+}
+.btn-next-stage:hover { opacity:.92; }
+.btn-next-stage .stage-name { font-size:.85rem; opacity:.9; font-weight:600; }
+.btn-next-stage.done-state { background:linear-gradient(135deg,#6b7280 0%,#4b5563 100%); box-shadow:none; }
+
+.quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.qbtn {
+  padding:13px 10px; border-radius:12px; border:1.5px solid #e0e0e0;
+  background:#fff; font-size:.82rem; font-weight:700; color:#333;
+  cursor:pointer; font-family:'Tajawal',sans-serif; text-align:center;
+  transition:all .15s; display:flex; flex-direction:column; align-items:center; gap:3px;
+}
+.qbtn .qi { font-size:1.2rem; }
+.qbtn:hover { border-color:#1a2d4a; background:#f0f4ff; color:#1a2d4a; }
+.qbtn.active { border-color:#c9a24b; background:#fffbf0; color:#92700a; }
+.qbtn.danger { border-color:#fee2e2; background:#fff5f5; color:#dc3545; }
+.qbtn.danger:hover { background:#dc3545; color:#fff; border-color:#dc3545; }
+
+/* Assign modals (inline collapsible) */
+.assign-panel {
+  background:#f8fafc; border-radius:12px; border:1.5px solid #e0e8f0;
+  padding:14px; margin-bottom:8px; display:none;
+}
+.assign-panel.open { display:block; }
+.assign-panel h6 { font-size:.85rem; font-weight:700; color:#1a2d4a; margin-bottom:10px; }
+.assign-select {
+  width:100%; padding:10px 12px; border-radius:10px; border:1.5px solid #d0d8e0;
+  font-family:'Tajawal',sans-serif; font-size:.9rem; background:#fff; margin-bottom:8px;
+}
+.btn-assign {
+  width:100%; padding:11px; border-radius:10px; border:none;
+  background:#1a2d4a; color:#fff; font-weight:700; font-size:.88rem;
+  font-family:'Tajawal',sans-serif; cursor:pointer; transition:background .15s;
+}
+.btn-assign:hover { background:#0e1d30; }
+
+/* Manual stage override */
+.override-panel {
+  border-top:1px dashed #ddd; padding-top:12px; margin-top:4px;
+}
+.override-toggle {
+  width:100%; background:none; border:none; color:#888; font-size:.8rem;
+  font-family:'Tajawal',sans-serif; cursor:pointer; padding:4px 0;
+  display:flex; align-items:center; justify-content:center; gap:4px;
+}
+.override-toggle:hover { color:#1a2d4a; }
+.override-inner { display:none; padding-top:10px; }
+.override-inner.open { display:block; }
+
+/* History log */
+.log-list { padding:0; }
+.log-item {
+  padding:12px 16px; border-bottom:1px solid #f5f5f5;
+  display:flex; gap:12px; align-items:flex-start;
+}
+.log-item:last-child { border-bottom:none; }
+.log-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg,#1a2d4a 0%,#2d4a6e 100%);
+  color:#c9a24b; font-size:.95rem; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.log-body { flex:1; min-width:0; }
+.log-action { font-weight:700; font-size:.85rem; color:#1a2d4a; }
+.log-detail { font-size:.78rem; color:#666; margin-top:1px; }
+.log-meta {
+  font-size:.7rem; color:#aaa; margin-top:3px;
+  display:flex; gap:6px; flex-wrap:wrap;
+}
+.log-meta span { display:flex; align-items:center; gap:2px; }
+
+.empty-log {
+  padding:32px 16px; text-align:center; color:#aaa; font-size:.88rem;
+}
+
+/* Mobile spacing — keep bottom nav from blocking actions */
+@media (max-width:768px) {
+  .sec-card { margin-bottom:12px; }
+}
+</style>
+
+<%
+  var ITEM_STAGES = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','تم التنفيذ'];
+%>
+
+<!-- ── Top bar ── -->
+<div class="prd-topbar">
+  <a href="/scanner" class="back-btn" title="العودة">←</a>
+  <div class="order-num"><%= order.order_number %></div>
+  <span class="status-badge bg-<%= STATUS_COLORS[order.status] || 'secondary' %>">
+    <%= order.status %>
+  </span>
+</div>
+
+<!-- ── Hero: image + name + tags + progress ── -->
+<div class="hero-card">
+  <% if (item.image_url && /^https?:\/\//i.test(item.image_url)) { %>
+    <img class="hero-img" src="<%= item.image_url %>" alt="<%= item.product_name %>"
+      onerror="this.style.display='none'; document.getElementById('hero-placeholder').style.display='flex'">
+    <div class="hero-img-placeholder" id="hero-placeholder" style="display:none">👗</div>
+  <% } else { %>
+    <div class="hero-img-placeholder">👗</div>
+  <% } %>
+
+  <div class="hero-body">
+    <div class="hero-name"><%= item.product_name %></div>
+    <div class="tag-row">
+      <% if (item.size)  { %><span class="tag size">📐 <%= item.size %></span><% } %>
+      <% if (item.color) { %><span class="tag color">🎨 <%= item.color %></span><% } %>
+      <span class="tag qty">الكمية: <%= item.qty %></span>
+      <span class="tag pieces">الطلب: <%= totalPieces %> ق</span>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span style="font-size:.78rem;color:#888;font-weight:600">تقدم الإنتاج</span>
+        <span style="font-size:.9rem;font-weight:900;color:<%= progressPct===100 ? '#10b981' : '#c9a24b' %>"><%= progressPct %>%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width:<%= progressPct %>%"></div>
+      </div>
+      <div class="progress-labels">
+        <span>تجهيز</span>
+        <span style="color:<%= progressPct===100?'#10b981':'#c9a24b' %>;font-weight:700"><%= item.stage %></span>
+        <span>تم التنفيذ</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Stage track ── -->
+<div class="sec-card">
+  <div class="sec-title">📊 مراحل الإنتاج</div>
+  <div class="stage-track">
+    <% ITEM_STAGES.forEach(function(s, i) {
+      var cls = i < curIdx ? 'done' : (i === curIdx ? 'current' : '');
+      var icon = i < curIdx ? '✓' : (i === curIdx ? '●' : (i + 1));
+    %>
+    <div class="stage-pill <%= cls %>">
+      <div class="sp-dot"><%= icon %></div>
+      <div class="sp-label"><%= s %></div>
+    </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- ── Info grid ── -->
+<div class="sec-card">
+  <div class="sec-title">📋 بيانات الإنتاج</div>
+  <div class="info-grid">
+    <div class="info-row">
+      <div class="info-lbl">الباركود / SKU</div>
+      <div class="info-val mono" dir="ltr"><%= item.barcode %></div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">المرحلة الحالية</div>
+      <div class="info-val"><%= item.stage || 'تجهيز' %></div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">المقاس</div>
+      <div class="info-val"><%= item.size || '—' %></div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">اللون</div>
+      <div class="info-val"><%= item.color || '—' %></div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">الكمية</div>
+      <div class="info-val"><%= item.qty %> قطعة</div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">إجمالي الطلب</div>
+      <div class="info-val"><%= totalPieces %> قطعة</div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">🏭 المشغل</div>
+      <div class="info-val <%= currentWorkshop ? '' : 'muted' %>">
+        <%= currentWorkshop ? currentWorkshop.name : 'لم يُعيَّن بعد' %>
+      </div>
+    </div>
+    <div class="info-row">
+      <div class="info-lbl">🧵 المطرز</div>
+      <div class="info-val <%= currentEmbroiderer ? '' : 'muted' %>">
+        <%= currentEmbroiderer ? currentEmbroiderer.name : 'لا يوجد' %>
+      </div>
+    </div>
+    <% if (item.embroidery_name) { %>
+    <div class="info-row full-width">
+      <div class="info-lbl">تفاصيل التطريز</div>
+      <div class="info-val">🧵 <%= item.embroidery_name %></div>
+    </div>
+    <% } %>
+    <% if (item.notes) { %>
+    <div class="info-row full-width">
+      <div class="info-lbl">ملاحظات الإنتاج</div>
+      <div class="info-val" style="font-weight:400;color:#555">📝 <%= item.notes %></div>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- ── Actions ── -->
+<div class="sec-card">
+  <div class="sec-title">⚡ الإجراءات</div>
+  <div class="actions-card">
+
+    <!-- Primary: Advance to next stage -->
+    <% if (nextStage) { %>
+    <form method="POST" action="/scanner/item/<%= encodeURIComponent(item.barcode) %>/stage">
+      <input type="hidden" name="stage" value="<%= nextStage %>">
+      <button type="submit" class="btn-next-stage">
+        <span>⬅ الخطوة التالية</span>
+        <span class="stage-name"><%= nextStage %></span>
+      </button>
+    </form>
+    <% } else { %>
+    <div class="btn-next-stage done-state" style="cursor:default">
+      <span>✅ اكتمل الإنتاج</span>
+      <span class="stage-name">تم التنفيذ</span>
+    </div>
+    <% } %>
+
+    <!-- Quick action buttons -->
+    <div class="quick-actions">
+
+      <!-- Assign Workshop -->
+      <button type="button" class="qbtn" onclick="togglePanel('workshop-panel', this)">
+        <span class="qi">🏭</span>
+        <span>تعيين مشغل</span>
+      </button>
+
+      <!-- Assign Embroiderer -->
+      <button type="button" class="qbtn" onclick="togglePanel('embroiderer-panel', this)">
+        <span class="qi">🧵</span>
+        <span>تعيين مطرز</span>
+      </button>
+
+      <!-- Send to QC -->
+      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
+        <input type="hidden" name="status" value="مراجعة">
+        <button type="submit" class="qbtn">
+          <span class="qi">🔍</span>
+          <span>مراقبة الجودة</span>
+        </button>
+      </form>
+
+      <!-- Ready for Packaging -->
+      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
+        <input type="hidden" name="status" value="جاهز للتغليف">
+        <button type="submit" class="qbtn">
+          <span class="qi">📦</span>
+          <span>جاهز للتغليف</span>
+        </button>
+      </form>
+
+      <!-- Received from Workshop -->
+      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
+        <input type="hidden" name="status" value="مستلم من المشغل">
+        <button type="submit" class="qbtn">
+          <span class="qi">📥</span>
+          <span>استلام من المشغل</span>
+        </button>
+      </form>
+
+      <!-- Mark Done -->
+      <form method="POST" action="/scanner/order/<%= order.id %>/status" style="display:contents">
+        <input type="hidden" name="status" value="تم التنفيذ">
+        <button type="submit" class="qbtn danger">
+          <span class="qi">✅</span>
+          <span>تم التنفيذ</span>
+        </button>
+      </form>
+
+    </div>
+
+    <!-- Assign Workshop panel -->
+    <div class="assign-panel" id="workshop-panel">
+      <h6>🏭 اختر المشغل</h6>
+      <form method="POST" action="/scanner/order/<%= order.id %>/workshop">
+        <input type="hidden" name="barcode" value="<%= item.barcode %>">
+        <select class="assign-select" name="workshop_id" required>
+          <option value="">— اختر مشغلاً —</option>
+          <% workshops.forEach(function(w) { %>
+            <option value="<%= w.id %>" <%= (currentWorkshop && currentWorkshop.id === w.id) ? 'selected' : '' %>>
+              <%= w.name %>
+            </option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn-assign">تعيين المشغل ✓</button>
+      </form>
+    </div>
+
+    <!-- Assign Embroiderer panel -->
+    <div class="assign-panel" id="embroiderer-panel">
+      <h6>🧵 اختر المطرز</h6>
+      <form method="POST" action="/scanner/order/<%= order.id %>/embroiderer">
+        <input type="hidden" name="barcode" value="<%= item.barcode %>">
+        <select class="assign-select" name="embroiderer_id" required>
+          <option value="">— اختر مطرزاً —</option>
+          <% embroiderers.forEach(function(e) { %>
+            <option value="<%= e.id %>" <%= (currentEmbroiderer && currentEmbroiderer.id === e.id) ? 'selected' : '' %>>
+              <%= e.name %>
+            </option>
+          <% }) %>
+        </select>
+        <button type="submit" class="btn-assign">تعيين المطرز ✓</button>
+      </form>
+    </div>
+
+    <!-- Manual override -->
+    <div class="override-panel">
+      <button type="button" class="override-toggle" onclick="toggleOverride()">
+        ⚙️ تغيير يدوي للمرحلة <span id="override-arrow">▾</span>
+      </button>
+      <div class="override-inner" id="override-inner">
+        <form method="POST" action="/scanner/item/<%= encodeURIComponent(item.barcode) %>/stage"
+          class="d-flex gap-2 mt-2">
+          <select class="form-select" name="stage">
+            <% ITEM_STAGES.forEach(function(s){ %>
+              <option value="<%= s %>" <%= item.stage===s ? 'selected' : '' %>><%= s %></option>
+            <% }) %>
+          </select>
+          <button class="btn btn-brand" type="submit" style="white-space:nowrap">حفظ</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Production history log ── -->
+<div class="sec-card">
+  <div class="sec-title">📜 سجل الإنتاج</div>
+  <div class="log-list">
+    <% if (!logs.length) { %>
+    <div class="empty-log">
+      <div style="font-size:2rem;margin-bottom:6px">📭</div>
+      لا توجد سجلات نشاط لهذا الطلب بعد.
+    </div>
+    <% } else { %>
+      <% logs.forEach(function(l) { %>
+      <div class="log-item">
+        <div class="log-avatar" title="<%= l.user_name %>">
+          <%= l.user_name ? l.user_name.charAt(0) : '؟' %>
+        </div>
+        <div class="log-body">
+          <div class="log-action"><%= l.action %></div>
+          <% if (l.details) { %>
+          <div class="log-detail"><%= l.details %></div>
+          <% } %>
+          <div class="log-meta">
+            <span>👤 <%= l.user_name || 'غير معروف' %></span>
+            <% if (l.user_role) { %><span>· <%= l.user_role %></span><% } %>
+            <span>🕐 <%= new Date(l.at).toLocaleDateString('ar-SA', {calendar:'gregory', year:'numeric', month:'short', day:'numeric'}) %></span>
+            <span><%= new Date(l.at).toLocaleTimeString('ar-SA', {hour:'2-digit', minute:'2-digit'}) %></span>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+    <% } %>
+  </div>
+</div>
+
+<!-- Scan another -->
+<a href="/scanner" class="btn btn-outline-secondary w-100 mb-4"
+  style="border-radius:12px; padding:13px; font-size:.95rem; font-weight:700;">
+  📷 مسح قطعة أخرى
+</a>
+
+<script>
+function togglePanel(id, btn) {
+  const panel = document.getElementById(id);
+  const isOpen = panel.classList.contains('open');
+  // Close all panels first
+  document.querySelectorAll('.assign-panel').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.qbtn').forEach(b => b.classList.remove('active'));
+  if (!isOpen) {
+    panel.classList.add('open');
+    btn.classList.add('active');
+    panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+}
+
+function toggleOverride() {
+  const inner = document.getElementById('override-inner');
+  const arrow = document.getElementById('override-arrow');
+  const open = inner.classList.toggle('open');
+  arrow.textContent = open ? '▴' : '▾';
+}
+</script>
+
+<%- include('../partials/foot') %>

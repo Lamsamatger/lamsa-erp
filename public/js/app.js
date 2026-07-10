@@ -4,7 +4,12 @@ function addItemRow() {
   if (!wrap) return;
   const first = wrap.querySelector('.item-row');
   const clone = first.cloneNode(true);
-  clone.querySelectorAll('input,select').forEach(el => { if (el.type !== 'checkbox') el.value = ''; });
+  clone.querySelectorAll('input,select').forEach(el => {
+    if (el.type === 'checkbox') return;
+    if (el.name === 'qty') { el.value = '1'; return; }
+    if (el.tagName === 'SELECT') { el.selectedIndex = 0; return; }
+    el.value = '';
+  });
   wrap.appendChild(clone);
 }
 

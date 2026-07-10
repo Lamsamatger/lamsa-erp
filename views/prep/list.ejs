@@ -1,38 +1,120 @@
-<%- include('../partials/head', {title: 'قوائم التجهيز'}) %>
+<%- include('../partials/head', {title: 'قائمة التجهيز'}) %>
+
+<style>
+/* ── Prep list specific ── */
+.prep-item-card {
+  background:#fff; border-radius:12px; border:1.5px solid #e8e8e8;
+  padding:0; overflow:hidden; display:flex; flex-direction:column;
+  transition:box-shadow .15s,border-color .15s;
+  position:relative;
+}
+.prep-item-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.1); border-color:#c9a24b; }
+.prep-item-card.selected { border-color:#1a2d4a; box-shadow:0 0 0 2px rgba(26,45,74,.15); }
+.pic-card-header {
+  background:#1a2d4a; color:#fff; padding:7px 10px;
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:.8rem; font-weight:700;
+}
+.pic-card-header .order-num { font-family:monospace; font-size:.85rem; letter-spacing:.5px; }
+.pic-card-header .status-chip {
+  font-size:.68rem; padding:2px 7px; border-radius:20px; font-weight:600;
+  background:rgba(255,255,255,.2); color:#fff;
+}
+.pic-card-body { display:flex; gap:10px; padding:10px; flex:1; }
+.pic-img-wrap {
+  width:72px; height:72px; flex-shrink:0; border-radius:8px;
+  background:#f4f6f9; overflow:hidden; border:1px solid #eee;
+  display:flex; align-items:center; justify-content:center;
+}
+.pic-img-wrap img { width:100%; height:100%; object-fit:cover; }
+.pic-img-placeholder { font-size:2rem; line-height:1; }
+.pic-details { flex:1; min-width:0; }
+.pic-product-name { font-weight:700; font-size:.88rem; color:#1a2d4a; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pic-meta { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; }
+.pic-chip {
+  background:#f0f4ff; color:#1a2d4a; border-radius:6px;
+  padding:1px 7px; font-size:.72rem; font-weight:600; display:flex; align-items:center; gap:3px;
+}
+.pic-chip.stage { background:#fff8e1; color:#92700a; }
+.pic-chip.qty { background:#e8f5e9; color:#1b5e20; }
+.pic-barcode-chip {
+  font-family:monospace; font-size:.65rem; color:#888; background:#f8f8f8;
+  border:1px solid #e0e0e0; border-radius:5px; padding:1px 6px;
+  display:inline-block; margin-top:2px;
+}
+.pic-card-footer {
+  border-top:1px solid #f0f0f0; padding:7px 10px;
+  display:flex; align-items:center; justify-content:space-between; gap:6px;
+}
+.pic-card-footer .action-btns { display:flex; gap:5px; }
+.qr-btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:32px; height:32px; border-radius:7px;
+  border:1.5px solid #e0e0e0; color:#666; background:#fff;
+  text-decoration:none; font-size:.95rem; transition:all .15s;
+}
+.qr-btn:hover { border-color:#c9a24b; color:#c9a24b; background:#fffbf0; }
+.select-check { width:18px; height:18px; cursor:pointer; accent-color:#1a2d4a; }
+
+/* items grid */
+.items-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(270px,1fr));
+  gap:12px;
+}
+@media (max-width:576px) {
+  .items-grid { grid-template-columns:1fr; }
+  .pic-img-wrap { width:60px; height:60px; }
+}
+
+/* view toggle */
+.view-tabs .btn { min-height:34px; font-size:.82rem; }
+.view-tabs .btn.active { background:#1a2d4a; color:#fff; border-color:#1a2d4a; }
+
+/* order summary row */
+.order-summary-row { background:#fff; border-radius:10px; border:1px solid #eee; padding:10px 14px; margin-bottom:8px; }
+</style>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h4 class="page-title mb-0">🗂️ قوائم التجهيز</h4>
-  <a href="/prep/print-all" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️ طباعة الكل</a>
+  <h4 class="page-title mb-0">🗂️ قائمة التجهيز</h4>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/prep/print-all" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️ طباعة الكل</a>
+    <a href="/barcode" class="btn btn-sm btn-outline-secondary">📷 مسح QR</a>
+  </div>
 </div>
 
 <!-- Filters -->
 <form method="GET" action="/prep" class="bg-white rounded-3 p-3 shadow-sm mb-3">
   <div class="row g-2 align-items-end">
-    <div class="col-6 col-md-3">
-      <label class="form-label small fw-bold mb-1">المشغل</label>
-      <select class="form-select form-select-sm" name="workshop_id">
-        <option value="">الكل</option>
-        <% workshops.forEach(function(w){ %>
-          <option value="<%= w.id %>" <%= (filters.workshop_id===w.id)?'selected':'' %>><%= w.name %></option>
+    <div class="col-6 col-md-2">
+      <label class="form-label small fw-bold mb-1">المرحلة</label>
+      <select class="form-select form-select-sm" name="stage">
+        <option value="">كل المراحل</option>
+        <% ORDER_STATUSES.filter(s => !['تم التنفيذ','ملغي'].includes(s)).forEach(function(s){ %>
+          <option value="<%= s %>" <%= filters.stage===s?'selected':'' %>><%= s %></option>
         <% }) %>
       </select>
     </div>
     <div class="col-6 col-md-2">
-      <label class="form-label small fw-bold mb-1">التاريخ</label>
-      <input class="form-control form-control-sm" type="date" name="date" value="<%= filters.date||'' %>">
-    </div>
-    <div class="col-6 col-md-3">
       <label class="form-label small fw-bold mb-1">المنتج</label>
       <select class="form-select form-select-sm" name="product_id">
         <option value="">الكل</option>
         <% products.forEach(function(p){ %>
-          <option value="<%= p.id %>" <%= (filters.product_id===p.id)?'selected':'' %>><%= p.name %></option>
+          <option value="<%= p.id %>" <%= filters.product_id===p.id?'selected':'' %>><%= p.name %></option>
         <% }) %>
       </select>
     </div>
-    <div class="col-6 col-md-2">
+    <div class="col-4 col-md-2">
       <label class="form-label small fw-bold mb-1">المقاس</label>
       <input class="form-control form-control-sm" name="size" value="<%= filters.size||'' %>" placeholder="المقاس">
+    </div>
+    <div class="col-4 col-md-2">
+      <label class="form-label small fw-bold mb-1">اللون</label>
+      <input class="form-control form-control-sm" name="color" value="<%= filters.color||'' %>" placeholder="اللون">
+    </div>
+    <div class="col-4 col-md-2">
+      <label class="form-label small fw-bold mb-1">التاريخ</label>
+      <input class="form-control form-control-sm" type="date" name="date" value="<%= filters.date||'' %>">
     </div>
     <div class="col-12 col-md-2 d-flex gap-2">
       <button class="btn btn-sm btn-brand flex-grow-1">تصفية</button>
@@ -41,94 +123,227 @@
   </div>
 </form>
 
-<% if (!orders.length) { %>
-  <div class="alert alert-info text-center">لا توجد طلبات تطابق الفلتر الحالي.</div>
+<% if (!items.length) { %>
+  <div class="alert alert-info text-center">لا توجد قطع تطابق الفلتر الحالي.</div>
 <% } else { %>
 
-<form method="POST" action="/prep/print" target="_blank">
+<form method="POST" action="/prep/print" target="_blank" id="prep-print-form">
   <!-- Toolbar -->
-  <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-    <div class="d-flex align-items-center gap-2">
-      <span class="text-muted small"><%= orders.length %> طلب</span>
-      <label class="d-flex align-items-center gap-1 small mb-0" style="cursor:pointer">
-        <input type="checkbox" onclick="toggleAll(this)" id="check-all"> تحديد الكل
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <span class="text-muted small fw-bold">
+        <%= items.length %> قطعة · <%= orders.length %> طلب
+      </span>
+      <label class="d-flex align-items-center gap-1 small mb-0 fw-bold" style="cursor:pointer">
+        <input type="checkbox" id="check-all-items" onchange="toggleAllItems(this)"> تحديد الكل
       </label>
     </div>
-    <button class="btn btn-sm btn-brand" type="submit">🖨️ طباعة بطاقات المحدد</button>
+    <div class="d-flex gap-2 flex-wrap align-items-center">
+      <!-- layout selector -->
+      <div class="view-tabs d-flex gap-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary active" id="btn-grid" onclick="setView('grid')">⊞ بطاقات</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-list" onclick="setView('list')">☰ قائمة</button>
+      </div>
+      <!-- cards-per-page for print -->
+      <select class="form-select form-select-sm" name="layout" style="width:auto" title="عدد البطاقات في الصفحة">
+        <option value="12">12 بطاقة/صفحة</option>
+        <option value="16">16 بطاقة/صفحة</option>
+      </select>
+      <button class="btn btn-sm btn-brand" type="submit">🖨️ طباعة المحدد</button>
+    </div>
   </div>
 
-  <!-- Desktop table -->
-  <div class="table-responsive bg-white rounded-3 shadow-sm d-none d-md-block">
-    <table class="table table-sm table-hover mb-0">
-      <thead class="table-light">
-        <tr>
-          <th style="width:36px"></th>
-          <th>رقم الطلب</th>
-          <th>الحالة</th>
-          <th>القطع</th>
-          <th>التاريخ</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      <% orders.forEach(function(o){ %>
-        <tr>
-          <td class="text-center"><input type="checkbox" class="order-check" name="order_ids" value="<%= o.id %>"></td>
-          <td><strong><%= o.order_number %></strong></td>
-          <td><span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span></td>
-          <td>
-            <div class="d-flex flex-wrap gap-1">
-            <% o.items.forEach(function(it){ %>
-              <span class="badge bg-light text-dark border" style="font-size:.7rem;"><%= it.product_name %> · <%= it.size||'—' %> · <%= it.qty %></span>
-            <% }) %>
-            </div>
-          </td>
-          <td class="text-muted small"><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></td>
-          <td>
-            <div class="d-flex gap-1">
-              <a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a>
-              <a href="/orders/<%= o.id %>/print" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️</a>
-            </div>
-          </td>
-        </tr>
-      <% }) %>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Mobile cards -->
-  <div class="d-md-none">
-    <% orders.forEach(function(o){ %>
-    <div class="bg-white rounded-3 shadow-sm p-3 mb-2">
-      <div class="d-flex justify-content-between align-items-start mb-2">
+  <!-- GRID VIEW (items) -->
+  <div id="view-grid">
+    <div class="items-grid" id="items-grid-container">
+    <%
+      const productMap = {};
+      products.forEach(p => { productMap[p.id] = p; });
+      const orderItemCountMap = {};
+      orders.forEach(o => { orderItemCountMap[o.id] = o.items.reduce((s,i)=>s+i.qty,0); });
+    %>
+    <% items.forEach(function(item){ %>
+    <div class="prep-item-card" id="card-<%= item.id %>" data-order-id="<%= item.order_id %>">
+      <!-- Header -->
+      <div class="pic-card-header">
         <div class="d-flex align-items-center gap-2">
-          <input type="checkbox" class="order-check" name="order_ids" value="<%= o.id %>" style="width:20px;height:20px">
-          <strong class="fs-6"><%= o.order_number %></strong>
+          <input type="checkbox" class="item-check select-check" name="order_ids" value="<%= item.order_id %>"
+            onchange="onItemCheck(this)" title="تحديد للطباعة">
+          <span class="order-num"><%= item.order_number %></span>
         </div>
-        <span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span>
+        <span class="status-chip"><%= item.order_status %></span>
       </div>
-      <div class="d-flex flex-wrap gap-1 mb-2">
-        <% o.items.forEach(function(it){ %>
-          <span class="badge bg-light text-dark border" style="font-size:.72rem;">
-            <%= it.product_name %> · <%= it.size||'—' %> · x<%= it.qty %>
-          </span>
-        <% }) %>
+
+      <!-- Body -->
+      <div class="pic-card-body">
+        <!-- Image -->
+        <div class="pic-img-wrap">
+          <% if (item.image_url && /^https?:\/\//i.test(item.image_url)) { %>
+            <img src="<%= item.image_url %>" alt="<%= item.product_name %>"
+              onerror="this.parentNode.innerHTML='<span class=pic-img-placeholder>👗</span>'">
+          <% } else { %>
+            <span class="pic-img-placeholder">👗</span>
+          <% } %>
+        </div>
+
+        <!-- Details -->
+        <div class="pic-details">
+          <div class="pic-product-name"><%= item.product_name %></div>
+          <div class="pic-meta">
+            <% if (item.size)  { %><span class="pic-chip">📐 <%= item.size %></span><% } %>
+            <% if (item.color) { %><span class="pic-chip">🎨 <%= item.color %></span><% } %>
+            <span class="pic-chip qty">×<%= item.qty %> قطعة</span>
+            <span class="pic-chip stage"><%= item.stage || 'تجهيز' %></span>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <code class="pic-barcode-chip"><%= item.barcode %></code>
+            <% if (orderItemCountMap[item.order_id]) { %>
+              <span style="font-size:.68rem;color:#aaa">إجمالي الطلب: <%= orderItemCountMap[item.order_id] %> ق</span>
+            <% } %>
+          </div>
+        </div>
       </div>
-      <div class="d-flex justify-content-between align-items-center">
-        <span class="text-muted small"><%= new Date(o.created_at).toLocaleDateString('ar-SA') %></span>
-        <div class="d-flex gap-2">
-          <a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a>
-          <a href="/orders/<%= o.id %>/print" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️</a>
+
+      <!-- Footer -->
+      <div class="pic-card-footer">
+        <div class="action-btns">
+          <a href="/barcode/item/<%= encodeURIComponent(item.barcode) %>" class="qr-btn" title="مسح / تحديث المرحلة">📷</a>
+          <a href="/orders/<%= item.order_id %>" class="qr-btn" title="فتح الطلب الكامل">📦</a>
+        </div>
+        <div style="text-align:left">
+          <a href="/barcode/item/<%= encodeURIComponent(item.barcode) %>"
+            class="d-flex align-items-center gap-1"
+            style="font-size:.72rem;color:#1a2d4a;text-decoration:none;font-weight:600;">
+            تفاصيل ←
+          </a>
         </div>
       </div>
     </div>
     <% }) %>
+    </div>
   </div>
 
-  <div class="mt-3 d-flex justify-content-end no-print">
+  <!-- LIST VIEW (orders) -->
+  <div id="view-list" style="display:none">
+
+    <!-- Desktop table -->
+    <div class="table-responsive bg-white rounded-3 shadow-sm d-none d-md-block">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:36px"></th>
+            <th>رقم الطلب</th>
+            <th>الحالة</th>
+            <th>القطع</th>
+            <th>المرحلة</th>
+            <th>التاريخ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        <% orders.forEach(function(o){ %>
+          <tr>
+            <td class="text-center"><input type="checkbox" class="order-check select-check" name="order_ids" value="<%= o.id %>"></td>
+            <td><strong class="font-monospace"><%= o.order_number %></strong></td>
+            <td><span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span></td>
+            <td>
+              <div class="d-flex flex-wrap gap-1">
+              <% o.items.forEach(function(it){ %>
+                <span class="badge bg-light text-dark border" style="font-size:.7rem;"><%= it.product_name %> · <%= it.size||'—' %> · <%= it.qty %></span>
+              <% }) %>
+              </div>
+            </td>
+            <td>
+              <% const stages=[...new Set(o.items.map(i=>i.stage||'تجهيز'))]; %>
+              <% stages.forEach(function(s){ %><span class="badge bg-warning text-dark" style="font-size:.68rem"><%= s %></span><% }) %>
+            </td>
+            <td class="text-muted small"><%= new Date(o.created_at).toLocaleDateString('ar-SA',{calendar:'gregory'}) %></td>
+            <td>
+              <div class="d-flex gap-1">
+                <a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a>
+                <a href="/orders/<%= o.id %>/print" class="btn btn-sm btn-outline-secondary" target="_blank">🖨️</a>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile order cards -->
+    <div class="d-md-none">
+      <% orders.forEach(function(o){ %>
+      <div class="order-summary-row d-flex justify-content-between align-items-start">
+        <div class="d-flex align-items-center gap-2">
+          <input type="checkbox" class="order-check select-check" name="order_ids" value="<%= o.id %>" style="width:18px;height:18px">
+          <div>
+            <strong class="font-monospace"><%= o.order_number %></strong>
+            <div class="d-flex flex-wrap gap-1 mt-1">
+              <% o.items.forEach(function(it){ %>
+                <span class="badge bg-light text-dark border" style="font-size:.7rem;"><%= it.product_name %> · <%= it.size||'—' %></span>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-column align-items-end gap-1">
+          <span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %>"><%= o.status %></span>
+          <a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem">فتح</a>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+
+  <div class="mt-3 d-flex justify-content-end gap-2">
+    <select class="form-select form-select-sm" name="layout" style="width:auto">
+      <option value="12">12 بطاقة/صفحة</option>
+      <option value="16">16 بطاقة/صفحة</option>
+    </select>
     <button class="btn btn-brand" type="submit">🖨️ طباعة بطاقات المحدد</button>
   </div>
 </form>
+
 <% } %>
+
+<script>
+// ── View toggle ──
+function setView(v) {
+  document.getElementById('view-grid').style.display = v === 'grid' ? '' : 'none';
+  document.getElementById('view-list').style.display = v === 'list' ? '' : 'none';
+  document.getElementById('btn-grid').classList.toggle('active', v === 'grid');
+  document.getElementById('btn-list').classList.toggle('active', v === 'list');
+}
+
+// ── Select all (items view) ──
+function toggleAllItems(master) {
+  document.querySelectorAll('.item-check, .order-check').forEach(cb => cb.checked = master.checked);
+  document.querySelectorAll('.prep-item-card').forEach(c => c.classList.toggle('selected', master.checked));
+}
+function onItemCheck(cb) {
+  const card = cb.closest('.prep-item-card');
+  if (card) card.classList.toggle('selected', cb.checked);
+  // sync master checkbox
+  const all = document.querySelectorAll('.item-check, .order-check');
+  const allChecked = [...all].every(c => c.checked);
+  const masterCb = document.getElementById('check-all-items');
+  if (masterCb) masterCb.checked = allChecked;
+}
+// De-duplicate order_ids before submit (guard: form only exists when items are present)
+const printForm = document.getElementById('prep-print-form');
+if (printForm) {
+  printForm.addEventListener('submit', function(e) {
+    const seen = new Set();
+    this.querySelectorAll('input[name="order_ids"]').forEach(cb => {
+      if (seen.has(cb.value)) { cb.name = ''; }
+      else { seen.add(cb.value); }
+    });
+    // Sync layout value from the visible layout select to the hidden one
+    const selects = this.querySelectorAll('select[name="layout"]');
+    if (selects.length > 1) {
+      selects[0].value = selects[selects.length - 1].value;
+    }
+  });
+}
+</script>
 
 <%- include('../partials/foot') %>

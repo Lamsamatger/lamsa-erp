@@ -1,0 +1,131 @@
+<%- include('../partials/head', {title: 'تفاصيل القطعة — ' + item.barcode}) %>
+
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <a href="/barcode" class="btn btn-sm btn-outline-secondary">📷 مسح باركود</a>
+  <a href="/orders/<%= order.id %>" class="btn btn-sm btn-outline-secondary">📦 فتح الطلب الكامل</a>
+</div>
+
+<!-- Order header -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h4 class="page-title mb-0">طلب <span dir="ltr"><%= order.order_number %></span></h4>
+  <span class="badge bg-<%= STATUS_COLORS[order.status] || 'secondary' %> badge-status" style="font-size:.9rem;padding:6px 14px"><%= order.status %></span>
+</div>
+
+<!-- Item details card -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <div class="d-flex gap-3 align-items-start">
+    <% if (item.image_url && /^https?:\/\//i.test(item.image_url)) { %>
+      <img src="<%= item.image_url %>" alt="<%= item.product_name %>"
+        class="rounded" style="width:88px;height:88px;object-fit:cover;flex-shrink:0;border:1px solid #eee"
+        onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'item-img-placeholder',textContent:'👗'}))">
+    <% } else { %>
+      <div class="rounded d-flex align-items-center justify-content-center bg-light"
+        style="width:88px;height:88px;font-size:2.2rem;flex-shrink:0;border:1px solid #eee">👗</div>
+    <% } %>
+    <div class="flex-grow-1 min-width-0">
+      <h5 class="fw-bold mb-2"><%= item.product_name %></h5>
+      <div class="d-flex flex-wrap gap-2 text-muted small mb-2">
+        <% if (item.size)  { %><span class="badge bg-light text-dark border">📐 <%= item.size %></span><% } %>
+        <% if (item.color) { %><span class="badge bg-light text-dark border">🎨 <%= item.color %></span><% } %>
+        <span class="badge bg-light text-dark border">📦 الكمية: <strong><%= item.qty %></strong></span>
+      </div>
+      <% if (item.embroidery_name) { %>
+        <div class="small mb-1">🧵 التطريز: <strong><%= item.embroidery_name %></strong></div>
+      <% } %>
+      <% if (item.notes) { %>
+        <div class="small text-muted mb-1">📝 <%= item.notes %></div>
+      <% } %>
+      <div class="mt-1">
+        <code class="small text-muted" dir="ltr" style="font-size:.8rem"><%= item.barcode %></code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Stage stepper -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <h6 class="fw-bold mb-3">مراحل الإنتاج</h6>
+  <%
+    var ITEM_STAGES = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','تم التنفيذ'];
+    var curIdx = ITEM_STAGES.indexOf(item.stage);
+  %>
+  <div class="stage-stepper">
+    <% ITEM_STAGES.forEach(function(s, i){ %>
+      <div class="stage-step <%= i < curIdx ? 'done' : (i === curIdx ? 'current' : 'pending') %>">
+        <div class="stage-dot-wrap">
+          <div class="stage-dot">
+            <% if (i < curIdx) { %>✓<% } else if (i === curIdx) { %>●<% } else { %><% } %>
+          </div>
+          <% if (i < ITEM_STAGES.length - 1) { %><div class="stage-line"></div><% } %>
+        </div>
+        <div class="stage-label"><%= s %></div>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Update stage -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <h6 class="fw-bold mb-3">تحديث المرحلة</h6>
+
+  <% if (nextStage) { %>
+  <form method="POST" action="/orders/<%= order.id %>/items/<%= item.id %>/stage" class="mb-3">
+    <input type="hidden" name="stage" value="<%= nextStage %>">
+    <input type="hidden" name="redirect" value="/barcode/item/<%= encodeURIComponent(item.barcode) %>">
+    <button class="btn btn-success w-100" style="font-size:1.05rem;padding:12px 0">
+      ✅ تقدم للمرحلة التالية<br>
+      <span style="font-size:.9rem;opacity:.9"><strong><%= nextStage %></strong></span>
+    </button>
+  </form>
+  <% } %>
+
+  <form method="POST" action="/orders/<%= order.id %>/items/<%= item.id %>/stage">
+    <input type="hidden" name="redirect" value="/barcode/item/<%= encodeURIComponent(item.barcode) %>">
+    <div class="d-flex gap-2 flex-wrap">
+      <select class="form-select" name="stage">
+        <% ORDER_STATUSES.forEach(function(s){ %>
+          <option value="<%= s %>" <%= item.stage===s ? 'selected' : '' %>><%= s %></option>
+        <% }) %>
+      </select>
+      <button class="btn btn-brand">حفظ</button>
+    </div>
+  </form>
+</div>
+
+<!-- Order items overview -->
+<% if (order.items.length > 1) { %>
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <h6 class="fw-bold mb-2">بقية قطع الطلب</h6>
+  <% order.items.forEach(function(it){ %>
+    <% if (it.id !== item.id) { %>
+    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+      <div>
+        <span class="small fw-bold"><%= it.product_name %></span>
+        <span class="text-muted small ms-2"><%= it.size || '' %></span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-light text-dark border" style="font-size:.72rem"><%= it.stage || '—' %></span>
+        <a href="/barcode/item/<%= encodeURIComponent(it.barcode) %>" class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;font-size:.75rem">فتح</a>
+      </div>
+    </div>
+    <% } %>
+  <% }) %>
+</div>
+<% } %>
+
+<!-- Activity log -->
+<% if (logs.length) { %>
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+  <h6 class="fw-bold mb-2">سجل نشاط الطلب</h6>
+  <% logs.slice(0,8).forEach(function(l){ %>
+    <div class="d-flex justify-content-between align-items-center py-1 border-bottom small">
+      <span class="text-muted"><%= l.action %> — <%= l.ref %></span>
+      <span class="text-muted" style="white-space:nowrap;font-size:.72rem"><%= new Date(l.timestamp).toLocaleDateString('ar-SA') %></span>
+    </div>
+  <% }) %>
+</div>
+<% } %>
+
+<a href="/barcode" class="btn btn-outline-secondary w-100 mb-3">📷 مسح قطعة أخرى</a>
+
+<%- include('../partials/foot') %>

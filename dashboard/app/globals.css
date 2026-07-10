@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-tajawal: 'Tajawal', sans-serif;
+  --navy: #1a2d4a;
+  --gold: #c9a24b;
+}
+
+html {
+  font-family: var(--font-tajawal);
+  direction: rtl;
+}
+
+body {
+  background: #f1f5f9;
+  color: #1e293b;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #c9a24b55; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c9a24b; }
+
+/* recharts overrides */
+.recharts-tooltip-wrapper { direction: ltr; }
+.recharts-legend-wrapper { direction: ltr; font-size: 0.8rem; }

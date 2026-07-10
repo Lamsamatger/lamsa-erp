@@ -1,0 +1,3 @@
+- [Next.js Dashboard Architecture](nextjs-dashboard-arch.md) — Next.js 14 (not 15, CVE-blocked), `.mjs` config only, Arabic locale → 'use client', ERP links via NEXT_PUBLIC_ERP_URL
+- [Workflow Port Split](workflow-port-split.md) — Express ERP on port 5000 (webview), Next.js dashboard on port 3000 (console); dashboard script uses --port 3000
+- [Production Module](production-module.md) — new /production routes + db arrays (production_errors, qc_records); validation patterns; redirect flow from orders/:id/status

@@ -197,12 +197,18 @@ app.post('/orders/:id/status', requireAuth, requireSection('orders'), (req, res)
   const db = load();
   const order = db.orders.find(o => o.id === req.params.id);
   if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
-  order.status = req.body.status;
+  const newStatus = (req.body.status || '').trim();
+  if (!ORDER_STATUSES.includes(newStatus))
+    return res.status(400).render('error', { message: 'حالة غير معروفة: ' + newStatus });
+  order.status = newStatus;
   order.updated_at = new Date().toISOString();
   if (req.body.shipment_number) order.shipment_number = req.body.shipment_number;
   log(db, req.session.user.id, 'تغيير حالة طلب', order.order_number + ' -> ' + order.status);
   save(db);
-  res.redirect('/orders/' + order.id);
+  // Support safe relative-path redirect (used by production module tabs)
+  const redirectRaw = (req.body.redirect || '').trim();
+  const safeRedirect = /^\/[^/\\]/.test(redirectRaw) ? redirectRaw : '/orders/' + order.id;
+  res.redirect(safeRedirect);
 });
 
 app.post('/orders/:id/assign-workshop', requireAuth, requireSection('orders'), (req, res) => {
@@ -237,18 +243,54 @@ app.get('/orders/:id/print', requireAuth, requireSection('orders'), (req, res) =
 // ---------- PREPARATION LISTS ----------
 app.get('/prep', requireAuth, requireSection('prep'), (req, res) => {
   const db = load();
-  const { workshop_id, date, product_id, size } = req.query;
+  const { workshop_id, date, product_id, size, color, stage } = req.query;
+
+  // Build product map for image enrichment
+  const productMap = {};
+  db.products.forEach(p => { productMap[p.id] = p; });
+
   let orders = db.orders.filter(o => !['تم التنفيذ', 'ملغي'].includes(o.status));
 
-  if (date) orders = orders.filter(o => (o.created_at || '').slice(0, 10) === date);
+  if (date)       orders = orders.filter(o => (o.created_at || '').slice(0, 10) === date);
   if (product_id) orders = orders.filter(o => o.items.some(it => it.product_id === product_id));
-  if (size) orders = orders.filter(o => o.items.some(it => it.size === size));
+  if (size)       orders = orders.filter(o => o.items.some(it => it.size === size));
+  if (color)      orders = orders.filter(o => o.items.some(it => it.color === color));
+  if (stage)      orders = orders.filter(o => o.status === stage || o.items.some(it => it.stage === stage));
   if (workshop_id) {
     const jobOrderIds = new Set(db.workshop_jobs.filter(j => j.workshop_id === workshop_id).map(j => j.order_id));
     orders = orders.filter(o => jobOrderIds.has(o.id));
   }
 
-  res.render('prep/list', { orders, products: db.products, workshops: db.workshops, filters: req.query });
+  // Flatten to item-level cards (enriched with order info + product image)
+  const items = [];
+  orders.forEach(order => {
+    const orderTotalPieces = order.items.reduce((s, i) => s + i.qty, 0);
+    order.items.forEach(item => {
+      // Apply item-level filters
+      if (size       && item.size  !== size)  return;
+      if (color      && item.color !== color) return;
+      if (product_id && item.product_id !== product_id) return;
+      if (stage      && item.stage !== stage && order.status !== stage) return;
+      const product = productMap[item.product_id];
+      items.push({
+        ...item,
+        image_url: (product && product.image_url) ? product.image_url : '',
+        order_id: order.id,
+        order_number: order.order_number,
+        order_status: order.status,
+        order_total_pieces: orderTotalPieces,
+        created_at: order.created_at,
+      });
+    });
+  });
+
+  res.render('prep/list', {
+    orders, items,
+    products: db.products,
+    workshops: db.workshops,
+    filters: req.query,
+    ORDER_STATUSES
+  });
 });
 
 app.post('/prep/print', requireAuth, requireSection('prep'), (req, res) => {
@@ -256,6 +298,7 @@ app.post('/prep/print', requireAuth, requireSection('prep'), (req, res) => {
   let ids = req.body.order_ids;
   if (!ids) ids = [];
   if (!Array.isArray(ids)) ids = [ids];
+  const cardsPerPage = parseInt(req.body.layout) === 16 ? 16 : 12;
   const orders = db.orders
     .filter(o => ids.includes(o.id))
     .sort((a, b) => a.order_number.localeCompare(b.order_number))
@@ -266,11 +309,12 @@ app.post('/prep/print', requireAuth, requireSection('prep'), (req, res) => {
         return { ...it, image_url: product ? product.image_url : '' };
       })
     }));
-  res.render('prep/print_cards', { orders, STATUS_COLORS });
+  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage });
 });
 
 app.get('/prep/print-all', requireAuth, requireSection('prep'), (req, res) => {
   const db = load();
+  const cardsPerPage = parseInt(req.query.layout) === 16 ? 16 : 12;
   const orders = db.orders
     .filter(o => !['تم التنفيذ', 'ملغي'].includes(o.status))
     .sort((a, b) => a.order_number.localeCompare(b.order_number))
@@ -281,12 +325,606 @@ app.get('/prep/print-all', requireAuth, requireSection('prep'), (req, res) => {
         return { ...it, image_url: product ? product.image_url : '' };
       })
     }));
-  res.render('prep/print_cards', { orders, STATUS_COLORS });
+  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage });
 });
 
+// ---------- ITEM STAGE UPDATE ----------
+app.post('/orders/:id/items/:itemId/stage', requireAuth, requireSection('orders'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const item = order.items.find(it => it.id === req.params.itemId);
+  if (!item) return res.status(404).render('error', { message: 'القطعة غير موجودة' });
+  const newItemStage = (req.body.stage || '').trim();
+  if (newItemStage && !ITEM_STAGES.includes(newItemStage))
+    return res.status(400).render('error', { message: 'مرحلة غير معروفة: ' + newItemStage });
+  item.stage = newItemStage || item.stage;
+  order.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تحديث مرحلة قطعة', order.order_number + ' → ' + item.stage);
+  save(db);
+  // Allow redirect back to item detail or order detail (constrain to same-origin relative paths)
+  const redirectRaw = req.body.redirect || '';
+  const redirect = /^\/[^/\\]/.test(redirectRaw) ? redirectRaw : '/orders/' + order.id;
+  res.redirect(redirect);
+});
+
+// ═══════════════════════════════════════════════════════
+// PRODUCTION QR SCANNER MODULE
+// ═══════════════════════════════════════════════════════
+const ITEM_STAGES = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','تم التنفيذ'];
+
+app.get('/scanner', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  // Collect up to 6 sample barcodes from active orders so employees can tap quickly
+  const sampleBarcodes = [];
+  for (const o of db.orders) {
+    if (['تم التنفيذ','ملغي'].includes(o.status)) continue;
+    for (const it of o.items) {
+      if (sampleBarcodes.length >= 6) break;
+      sampleBarcodes.push(it.barcode);
+    }
+    if (sampleBarcodes.length >= 6) break;
+  }
+  res.render('scanner/index', { sampleBarcodes, error: req.query.error || null });
+});
+
+// Safe barcode decode helper — returns null on malformed input
+function decodeSafeBarcode(raw) {
+  try { return decodeURIComponent(raw).trim(); } catch { return null; }
+}
+
+app.get('/scanner/item/:barcode', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  const barcode = decodeSafeBarcode(req.params.barcode);
+  if (!barcode) return res.redirect('/scanner?error=' + encodeURIComponent('باركود غير صالح'));
+
+  // Locate item across all orders
+  let foundOrder = null, foundItem = null;
+  for (const order of db.orders) {
+    const item = order.items.find(it => it.barcode === barcode);
+    if (item) { foundOrder = order; foundItem = item; break; }
+  }
+  if (!foundOrder) {
+    return res.redirect('/scanner?error=' + encodeURIComponent(barcode));
+  }
+
+  // Enrich item with product image
+  const product = db.products.find(p => p.id === foundItem.product_id);
+  const item = { ...foundItem, image_url: product ? (product.image_url || '') : '' };
+
+  // Stage position + next stage
+  const curIdx   = ITEM_STAGES.indexOf(foundItem.stage);
+  const nextStage = (curIdx >= 0 && curIdx < ITEM_STAGES.length - 1) ? ITEM_STAGES[curIdx + 1] : null;
+
+  // Order progress % — average stage position across all items
+  const stageSum = foundOrder.items.reduce((s, it) => {
+    const idx = ITEM_STAGES.indexOf(it.stage || '');
+    return s + (idx >= 0 ? idx : 0);
+  }, 0);
+  const progressPct = Math.round((stageSum / foundOrder.items.length) / (ITEM_STAGES.length - 1) * 100);
+
+  // Current workshop assignment (latest active job)
+  const workshopJob     = db.workshop_jobs.filter(j => j.order_id === foundOrder.id).slice(-1)[0];
+  const currentWorkshop = workshopJob ? db.workshops.find(w => w.id === workshopJob.workshop_id) : null;
+
+  // Current embroiderer assignment (latest job)
+  const embroideryJob      = db.embroidery_jobs.filter(j => j.order_id === foundOrder.id).slice(-1)[0];
+  const currentEmbroiderer = embroideryJob ? db.embroiderers.find(e => e.id === embroideryJob.embroiderer_id) : null;
+
+  // Activity logs for this order — enrich with user name + role
+  const userMap = {};
+  db.users.forEach(u => { userMap[u.id] = u; });
+  const logs = db.activity_logs
+    .filter(l => l.details && l.details.includes(foundOrder.order_number))
+    .slice(0, 30)
+    .map(l => {
+      const u = userMap[l.user_id];
+      return {
+        ...l,
+        user_name: u ? u.name : 'غير معروف',
+        user_role: u ? (ROLES[u.role] || '') : ''
+      };
+    });
+
+  res.render('scanner/item', {
+    order: foundOrder,
+    item,
+    nextStage,
+    ITEM_STAGES,
+    curIdx,
+    progressPct,
+    currentWorkshop,
+    currentEmbroiderer,
+    workshops:   db.workshops.filter(w => w.status === 'active'),
+    embroiderers: db.embroiderers,
+    logs,
+    totalPieces: foundOrder.items.reduce((s, i) => s + i.qty, 0)
+  });
+});
+
+// POST: advance or override item stage
+app.post('/scanner/item/:barcode/stage', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  const barcode = decodeSafeBarcode(req.params.barcode);
+  if (!barcode) return res.redirect('/scanner?error=' + encodeURIComponent('باركود غير صالح'));
+
+  const newStage = (req.body.stage || '').trim();
+  // Enforce allowlist — only accept known production stages
+  if (!ITEM_STAGES.includes(newStage)) {
+    return res.status(400).render('error', { message: 'مرحلة إنتاج غير معروفة: ' + newStage });
+  }
+
+  let foundOrder = null, foundItem = null;
+  for (const order of db.orders) {
+    const it = order.items.find(i => i.barcode === barcode);
+    if (it) { foundOrder = order; foundItem = it; break; }
+  }
+  if (!foundOrder || !foundItem) return res.redirect('/scanner?error=' + encodeURIComponent(barcode));
+
+  foundItem.stage = newStage;
+  foundOrder.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تحديث مرحلة قطعة',
+    `${foundOrder.order_number} — ${foundItem.barcode} → ${newStage}`);
+  save(db);
+  res.redirect('/scanner/item/' + encodeURIComponent(barcode));
+});
+
+// POST: update order-level status
+app.post('/scanner/order/:orderId/status', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  // Validate orderId is a known id (not an arbitrary string)
+  const order = db.orders.find(o => o.id === req.params.orderId);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  const newStatus = (req.body.status || '').trim();
+  // Enforce allowlist
+  if (!ORDER_STATUSES.includes(newStatus)) {
+    return res.status(400).render('error', { message: 'حالة غير معروفة: ' + newStatus });
+  }
+
+  order.status = newStatus;
+  order.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تغيير حالة طلب', `${order.order_number} → ${newStatus}`);
+  save(db);
+
+  // Redirect back to the item that triggered the action (safe relative path only)
+  const barcode = (req.body.barcode || '').trim();
+  if (barcode) return res.redirect('/scanner/item/' + encodeURIComponent(barcode));
+  res.redirect('/scanner');
+});
+
+// POST: assign workshop
+app.post('/scanner/order/:orderId/workshop', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.orderId);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  const { workshop_id, barcode } = req.body;
+  const workshop = db.workshops.find(w => w.id === workshop_id);
+  if (workshop) {
+    // Update or create workshop job
+    let job = db.workshop_jobs.find(j => j.order_id === order.id && j.status === 'قيد الانتظار');
+    if (!job) {
+      job = {
+        id: newId('wjob'),
+        order_id: order.id,
+        workshop_id,
+        delivered_qty: order.items.reduce((s, i) => s + i.qty, 0),
+        received_qty: 0,
+        delivered_at: new Date().toISOString(),
+        received_at: null,
+        status: 'عند المشغل'
+      };
+      db.workshop_jobs.push(job);
+    } else {
+      job.workshop_id = workshop_id;
+      job.delivered_at = new Date().toISOString();
+      job.status = 'عند المشغل';
+    }
+    order.status = 'عند المشغل';
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'تعيين مشغل', `${order.order_number} → ${workshop.name}`);
+    save(db);
+  }
+
+  const redirectBarcode = (barcode || '').trim();
+  if (redirectBarcode) return res.redirect('/scanner/item/' + encodeURIComponent(redirectBarcode));
+  res.redirect('/scanner');
+});
+
+// POST: assign embroiderer
+app.post('/scanner/order/:orderId/embroiderer', requireAuth, requireSection('scanner'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.orderId);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  const { embroiderer_id, barcode } = req.body;
+  const embroiderer = db.embroiderers.find(e => e.id === embroiderer_id);
+  if (embroiderer) {
+    const job = {
+      id: newId('ejob'),
+      order_id: order.id,
+      embroiderer_id,
+      received_qty: order.items.reduce((s, i) => s + i.qty, 0),
+      done_qty: 0,
+      errors: 0,
+      notes: '',
+      created_at: new Date().toISOString()
+    };
+    db.embroidery_jobs.push(job);
+    order.status = 'عند المطرز';
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'تعيين مطرز', `${order.order_number} → ${embroiderer.name}`);
+    save(db);
+  }
+
+  const redirectBarcode = (barcode || '').trim();
+  if (redirectBarcode) return res.redirect('/scanner/item/' + encodeURIComponent(redirectBarcode));
+  res.redirect('/scanner');
+});
+
+// ═══════════════════════════════════════════════════════
+// PRODUCTION MANAGEMENT MODULE
+// ═══════════════════════════════════════════════════════
+
+app.get('/production', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  db.production_errors = db.production_errors || [];
+  db.qc_records        = db.qc_records        || [];
+
+  const activeOrders = db.orders.filter(o => !['تم التنفيذ','ملغي'].includes(o.status));
+
+  // KPIs
+  const today        = new Date().toISOString().slice(0, 10);
+  const doneToday    = db.orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at||'').slice(0,10) === today).length;
+  const delayedList  = activeOrders.filter(isLate);
+  const totalPieces  = activeOrders.reduce((s, o) => s + o.items.reduce((s2,i) => s2 + i.qty, 0), 0);
+  const completedPieces = activeOrders.reduce((s, o) =>
+    s + o.items.filter(i => i.stage === 'تم التنفيذ').reduce((s2, i) => s2 + i.qty, 0), 0);
+  const qcRejected   = db.qc_records.reduce((s, r) => s + (r.rejected_qty || 0), 0);
+  const openErrors   = db.production_errors.filter(e => !e.resolved);
+
+  // Stage counts for pipeline
+  const stageCountMap = {};
+  ORDER_STATUSES.forEach(s => stageCountMap[s] = 0);
+  activeOrders.forEach(o => stageCountMap[o.status] = (stageCountMap[o.status] || 0) + 1);
+
+  // Delayed count per stage
+  const delayedByStage = {};
+  delayedList.forEach(o => {
+    delayedByStage[o.status] = (delayedByStage[o.status] || 0) + 1;
+  });
+
+  // Workshop performance stats
+  const workshopStats = db.workshops.map(w => {
+    const jobs = db.workshop_jobs.filter(j => j.workshop_id === w.id);
+    const activeJobs    = jobs.filter(j => j.status === 'عند المشغل').length;
+    const totalDelivered = jobs.reduce((s, j) => s + (j.delivered_qty || 0), 0);
+    const totalReceived  = jobs.reduce((s, j) => s + (j.received_qty  || 0), 0);
+    return { ...w, activeJobs, totalDelivered, totalReceived, pending: totalDelivered - totalReceived };
+  });
+
+  // Enrich active orders for the list
+  const productMap  = {};  db.products.forEach(p => { productMap[p.id] = p; });
+  const workshopMap = {};  db.workshops.forEach(w => { workshopMap[w.id] = w; });
+
+  let enrichedOrders = activeOrders.map(o => {
+    const wjob = db.workshop_jobs.filter(j => j.order_id === o.id).slice(-1)[0];
+    const totalQty = o.items.reduce((s, i) => s + i.qty, 0);
+    const doneQty  = o.items.filter(i => i.stage === 'تم التنفيذ').reduce((s, i) => s + i.qty, 0);
+    const stageSum = o.items.reduce((s, i) => {
+      const idx = ITEM_STAGES.indexOf(i.stage || '');
+      return s + (idx >= 0 ? idx : 0);
+    }, 0);
+    const progressPct = o.items.length > 0
+      ? Math.round(stageSum / o.items.length / (ITEM_STAGES.length - 1) * 100) : 0;
+    const errCount = db.production_errors.filter(e => e.order_id === o.id && !e.resolved).length;
+    return {
+      ...o,
+      late:        isLate(o),
+      daysSince:   daysBetween(o.created_at),
+      totalQty, doneQty,
+      remainingQty: totalQty - doneQty,
+      progressPct,
+      workshop:    wjob ? workshopMap[wjob.workshop_id] : null,
+      errors:      errCount
+    };
+  });
+
+  // Apply filters
+  const { status, workshop_id, delay } = req.query;
+  if (status)      enrichedOrders = enrichedOrders.filter(o => o.status === status);
+  if (workshop_id) enrichedOrders = enrichedOrders.filter(o => o.workshop && o.workshop.id === workshop_id);
+  if (delay === '1') enrichedOrders = enrichedOrders.filter(o => o.late);
+
+  res.render('production/dashboard', {
+    title: 'إدارة الإنتاج',
+    kpi: { active: activeOrders.length, delayed: delayedList.length, doneToday, totalPieces, completedPieces, qcRejected, openErrors: openErrors.length },
+    stageCountMap,
+    delayedByStage,
+    workshopStats,
+    openErrors: openErrors.slice(0, 8),
+    orders: enrichedOrders,
+    workshops:     db.workshops,
+    filters:       req.query,
+    ORDER_STATUSES,
+    ITEM_STAGES,
+    DELAY_DAYS_THRESHOLD
+  });
+});
+
+app.get('/production/order/:id', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  db.production_errors = db.production_errors || [];
+  db.qc_records        = db.qc_records        || [];
+
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  // Enrich items with product images
+  const productMap = {};
+  db.products.forEach(p => { productMap[p.id] = p; });
+  const items = order.items.map(it => ({
+    ...it,
+    image_url: (productMap[it.product_id] && productMap[it.product_id].image_url) || ''
+  }));
+
+  const totalQty  = items.reduce((s, i) => s + i.qty, 0);
+  const stageSum  = items.reduce((s, i) => {
+    const idx = ITEM_STAGES.indexOf(i.stage || '');
+    return s + (idx >= 0 ? idx : 0);
+  }, 0);
+  const progressPct = items.length > 0
+    ? Math.round(stageSum / items.length / (ITEM_STAGES.length - 1) * 100) : 0;
+
+  // Stage breakdown by qty
+  const stageBreakdown = {};
+  ITEM_STAGES.forEach(s => stageBreakdown[s] = 0);
+  items.forEach(i => { stageBreakdown[i.stage] = (stageBreakdown[i.stage] || 0) + i.qty; });
+
+  // Workshop jobs enriched
+  const workshopJobs = db.workshop_jobs
+    .filter(j => j.order_id === order.id)
+    .map(j => ({
+      ...j,
+      workshop: db.workshops.find(w => w.id === j.workshop_id) || { name: 'غير معروف' }
+    }));
+
+  // Embroidery jobs enriched
+  const embJobs = db.embroidery_jobs
+    .filter(j => j.order_id === order.id)
+    .map(j => ({
+      ...j,
+      embroiderer: db.embroiderers.find(e => e.id === j.embroiderer_id) || { name: 'غير معروف' }
+    }));
+
+  // QC records + totals
+  const qcRecords = db.qc_records.filter(r => r.order_id === order.id);
+  const qcTotals  = qcRecords.reduce(
+    (s, r) => ({ accepted: s.accepted + (r.accepted_qty||0), rejected: s.rejected + (r.rejected_qty||0), rework: s.rework + (r.rework_qty||0) }),
+    { accepted: 0, rejected: 0, rework: 0 }
+  );
+
+  // Production errors for this order
+  const errors = db.production_errors.filter(e => e.order_id === order.id);
+
+  // Activity logs enriched
+  const userMap = {};
+  db.users.forEach(u => { userMap[u.id] = u; });
+  const logs = db.activity_logs
+    .filter(l => l.details && l.details.includes(order.order_number))
+    .slice(0, 50)
+    .map(l => {
+      const u = userMap[l.user_id];
+      return { ...l, user_name: u ? u.name : 'غير معروف', user_role: u ? (ROLES[u.role] || '') : '' };
+    });
+
+  res.render('production/order', {
+    title: order.order_number + ' — الإنتاج',
+    tab: req.query.tab || 'stages',
+    order,
+    items,
+    progressPct,
+    totalQty,
+    stageBreakdown,
+    workshopJobs,
+    embJobs,
+    qcRecords,
+    qcTotals,
+    errors,
+    logs,
+    workshops:    db.workshops.filter(w => w.status === 'active'),
+    embroiderers: db.embroiderers,
+    ITEM_STAGES,
+    late:      isLate(order),
+    daysSince: daysBetween(order.created_at)
+  });
+});
+
+// POST: bulk update all items to same stage
+app.post('/production/order/:id/items/stage', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const newStage = (req.body.stage || '').trim();
+  if (!ITEM_STAGES.includes(newStage))
+    return res.status(400).render('error', { message: 'مرحلة غير معروفة' });
+  order.items.forEach(i => { i.stage = newStage; });
+  order.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تحديث مرحلة جميع القطع', `${order.order_number} → ${newStage}`);
+  save(db);
+  res.redirect('/production/order/' + order.id + '?tab=stages');
+});
+
+// POST: send to workshop
+app.post('/production/order/:id/workshop', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const { workshop_id, qty } = req.body;
+  const workshop = db.workshops.find(w => w.id === workshop_id);
+  if (workshop) {
+    const deliveredQty = parseInt(qty || '') || order.items.reduce((s, i) => s + i.qty, 0);
+    db.workshop_jobs.push({
+      id: newId('wjob'),
+      order_id: order.id,
+      workshop_id,
+      delivered_qty: deliveredQty,
+      received_qty: 0,
+      delivered_at: new Date().toISOString(),
+      received_at: null,
+      status: 'عند المشغل'
+    });
+    order.status = 'عند المشغل';
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'إرسال للمشغل', `${order.order_number} → ${workshop.name} (${deliveredQty} قطعة)`);
+    save(db);
+  }
+  res.redirect('/production/order/' + order.id + '?tab=workshop');
+});
+
+// POST: receive from workshop
+app.post('/production/order/:id/workshop-receive', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const { job_id, received_qty } = req.body;
+  const job = db.workshop_jobs.find(j => j.id === job_id && j.order_id === order.id);
+  if (job) {
+    job.received_qty = parseInt(received_qty || '0', 10);
+    job.received_at  = new Date().toISOString();
+    job.status       = 'مستلم';
+    order.status     = 'مستلم من المشغل';
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'استلام من المشغل', `${order.order_number} — ${job.received_qty} قطعة`);
+    save(db);
+  }
+  res.redirect('/production/order/' + order.id + '?tab=workshop');
+});
+
+// POST: assign embroiderer
+app.post('/production/order/:id/embroiderer', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const { embroiderer_id, qty } = req.body;
+  const embroiderer = db.embroiderers.find(e => e.id === embroiderer_id);
+  if (embroiderer) {
+    const rcvQty = parseInt(qty || '') || order.items.reduce((s, i) => s + i.qty, 0);
+    db.embroidery_jobs.push({
+      id: newId('ejob'),
+      order_id:       order.id,
+      embroiderer_id,
+      received_qty:   rcvQty,
+      done_qty: 0,
+      errors:   0,
+      notes:    '',
+      created_at: new Date().toISOString()
+    });
+    order.status     = 'عند المطرز';
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'إرسال للمطرز', `${order.order_number} → ${embroiderer.name}`);
+    save(db);
+  }
+  res.redirect('/production/order/' + order.id + '?tab=embroidery');
+});
+
+// POST: update embroidery job progress
+app.post('/production/order/:id/embroidery-update', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const { job_id, done_qty, errors: errCount, notes } = req.body;
+  const job = db.embroidery_jobs.find(j => j.id === job_id && j.order_id === order.id);
+  if (job) {
+    job.done_qty = parseInt(done_qty  || '0', 10);
+    job.errors   = parseInt(errCount  || '0', 10);
+    job.notes    = notes || '';
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'تحديث تطريز', `${order.order_number} — ${job.done_qty} منجز`);
+    save(db);
+  }
+  res.redirect('/production/order/' + order.id + '?tab=embroidery');
+});
+
+// POST: add QC record
+app.post('/production/order/:id/qc', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  db.qc_records = db.qc_records || [];
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const { accepted_qty, rejected_qty, rework_qty, notes } = req.body;
+  const record = {
+    id:           newId('qc'),
+    order_id:     order.id,
+    order_number: order.order_number,
+    accepted_qty: parseInt(accepted_qty || '0', 10),
+    rejected_qty: parseInt(rejected_qty || '0', 10),
+    rework_qty:   parseInt(rework_qty   || '0', 10),
+    notes:        notes || '',
+    checked_by:   req.session.user.id,
+    at:           new Date().toISOString()
+  };
+  db.qc_records.push(record);
+  // Auto-advance: zero rejections → packaging ready (regardless of accepted count); any rejection → review
+  order.status     = record.rejected_qty === 0 ? 'جاهز للتغليف' : 'مراجعة';
+  order.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تسجيل مراقبة جودة',
+    `${order.order_number} — قبول: ${record.accepted_qty}، رفض: ${record.rejected_qty}`);
+  save(db);
+  res.redirect('/production/order/' + order.id + '?tab=quality');
+});
+
+// POST: record production error
+app.post('/production/order/:id/error', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  db.production_errors = db.production_errors || [];
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+  const { error_type, reason, department, item_barcode } = req.body;
+  db.production_errors.push({
+    id:           newId('perr'),
+    order_id:     order.id,
+    order_number: order.order_number,
+    item_barcode: (item_barcode || '').trim(),
+    error_type:   error_type || 'أخرى',
+    reason:       reason     || '',
+    department:   department || '',
+    recorded_by:  req.session.user.id,
+    at:           new Date().toISOString(),
+    resolved:     false,
+    resolved_at:  null
+  });
+  log(db, req.session.user.id, 'تسجيل خطأ إنتاجي',
+    `${order.order_number} — ${error_type || 'أخرى'}`);
+  save(db);
+  res.redirect('/production/order/' + order.id + '?tab=errors');
+});
+
+// POST: resolve production error
+app.post('/production/error/:errorId/resolve', requireAuth, requireSection('production'), (req, res) => {
+  const db = load();
+  db.production_errors = db.production_errors || [];
+  const err = db.production_errors.find(e => e.id === req.params.errorId);
+  if (!err) return res.status(404).render('error', { message: 'السجل غير موجود' });
+  err.resolved    = true;
+  err.resolved_at = new Date().toISOString();
+  log(db, req.session.user.id, 'حل خطأ إنتاجي', `${err.order_number} — ${err.error_type}`);
+  save(db);
+  res.redirect('/production/order/' + err.order_id + '?tab=errors');
+});
+
+// ═══════════════════════════════════════════════════════
 // ---------- BARCODE SCANNING ----------
 app.get('/barcode', requireAuth, requireSection('barcode'), (req, res) => {
   res.render('barcode/scan', { result: null, error: null });
+});
+
+// Redirect from item-detail scan form (GET) → item page
+app.get('/barcode/item-redirect', requireAuth, requireSection('barcode'), (req, res) => {
+  const code = (req.query.code || '').trim();
+  if (!code) return res.redirect('/barcode');
+  res.redirect('/barcode/item/' + encodeURIComponent(code));
 });
 
 app.post('/barcode/scan', requireAuth, requireSection('barcode'), (req, res) => {
@@ -330,7 +968,8 @@ app.post('/barcode/scan', requireAuth, requireSection('barcode'), (req, res) => 
   order.updated_at = new Date().toISOString();
   log(db, req.session.user.id, 'مسح باركود - ' + event, order.order_number);
   save(db);
-  res.render('barcode/scan', { result: { message, order }, error: null });
+  // Include the original scanned code so the template can build item-detail links
+  res.render('barcode/scan', { result: { message, order, code }, error: null });
 });
 
 // ---------- PRODUCTS ----------
@@ -687,6 +1326,45 @@ app.get('/reports', requireAuth, requireSection('dashboard'), (req, res) => {
   const daily = Object.entries(dailyMap).sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 14);
 
   res.render('reports', { byWorkshop, daily, totalOrders: db.orders.length });
+});
+
+// ---------- BARCODE ITEM DETAIL ----------
+app.get('/barcode/item/:barcode', requireAuth, requireSection('barcode'), (req, res) => {
+  const db = load();
+  const barcode = decodeURIComponent(req.params.barcode);
+
+  // Find the order containing this item barcode
+  let foundOrder = null;
+  let foundItem = null;
+  for (const order of db.orders) {
+    const item = order.items.find(it => it.barcode === barcode);
+    if (item) { foundOrder = order; foundItem = item; break; }
+  }
+
+  if (!foundOrder) {
+    return res.status(404).render('error', { message: 'لم يتم العثور على قطعة بهذا الباركود: ' + barcode });
+  }
+
+  // Enrich item with product image
+  const product = db.products.find(p => p.id === foundItem.product_id);
+  const itemWithImg = { ...foundItem, image_url: product ? (product.image_url || '') : '' };
+
+  // Determine next stage
+  const ITEM_STAGES = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','تم التنفيذ'];
+  const curIdx = ITEM_STAGES.indexOf(foundItem.stage);
+  const nextStage = (curIdx >= 0 && curIdx < ITEM_STAGES.length - 1) ? ITEM_STAGES[curIdx + 1] : null;
+
+  // Activity logs relevant to this order
+  const logs = db.activity_logs
+    .filter(l => l.ref && l.ref.includes(foundOrder.order_number))
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  res.render('barcode/item', {
+    order: foundOrder,
+    item: itemWithImg,
+    nextStage,
+    logs
+  });
 });
 
 // ---------- ORDER SEARCH ----------

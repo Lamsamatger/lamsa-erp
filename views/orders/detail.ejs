@@ -38,23 +38,67 @@
 
 <div class="bg-white rounded p-3 shadow-sm mb-3">
   <h6>القطع المطلوبة</h6>
-  <table class="table table-sm">
-    <thead><tr><th>المنتج</th><th>المقاس</th><th>اللون</th><th>اسم التطريز</th><th>الكمية</th><th>الباركود</th><th>المرحلة</th><th>ملاحظات</th></tr></thead>
-    <tbody>
+
+  <!-- Desktop table -->
+  <div class="table-responsive d-none d-md-block">
+    <table class="table table-sm align-middle">
+      <thead class="table-light"><tr><th>المنتج</th><th>المقاس</th><th>اللون</th><th>التطريز</th><th>الكمية</th><th>الباركود</th><th>المرحلة</th><th></th></tr></thead>
+      <tbody>
+      <% order.items.forEach(function(it){ %>
+        <tr>
+          <td><%= it.product_name %></td>
+          <td><%= it.size || '—' %></td>
+          <td><%= it.color || '—' %></td>
+          <td><%= it.embroidery_name || '—' %></td>
+          <td><%= it.qty %></td>
+          <td><code class="small" dir="ltr"><%= it.barcode %></code></td>
+          <td>
+            <form method="POST" action="/orders/<%= order.id %>/items/<%= it.id %>/stage" class="d-flex gap-1 align-items-center">
+              <select class="form-select form-select-sm" name="stage" style="min-width:140px">
+                <% ORDER_STATUSES.forEach(function(s){ %>
+                  <option value="<%= s %>" <%= it.stage===s?'selected':'' %>><%= s %></option>
+                <% }) %>
+              </select>
+              <button class="btn btn-sm btn-outline-secondary">حفظ</button>
+            </form>
+          </td>
+          <td>
+            <a href="/barcode/item/<%= encodeURIComponent(it.barcode) %>" class="btn btn-sm btn-outline-secondary" title="تفاصيل القطعة">🔍</a>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile cards per item -->
+  <div class="d-md-none">
     <% order.items.forEach(function(it){ %>
-      <tr>
-        <td><%= it.product_name %></td>
-        <td><%= it.size || '—' %></td>
-        <td><%= it.color || '—' %></td>
-        <td><%= it.embroidery_name || '—' %></td>
-        <td><%= it.qty %></td>
-        <td><code><%= it.barcode %></code></td>
-        <td><%= it.stage || '—' %></td>
-        <td><%= it.notes || '' %></td>
-      </tr>
+    <div class="border rounded-3 p-3 mb-2 bg-light">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <strong class="d-block"><%= it.product_name %></strong>
+          <span class="text-muted small">
+            <% if(it.size)  { %><%= it.size %><% } %>
+            <% if(it.color) { %> · <%= it.color %><% } %>
+            · x<%= it.qty %>
+          </span>
+        </div>
+        <a href="/barcode/item/<%= encodeURIComponent(it.barcode) %>" class="btn btn-sm btn-outline-secondary">🔍 تفاصيل</a>
+      </div>
+      <% if (it.embroidery_name) { %><div class="small mb-2">🧵 <%= it.embroidery_name %></div><% } %>
+      <code class="small text-muted d-block mb-2" dir="ltr"><%= it.barcode %></code>
+      <form method="POST" action="/orders/<%= order.id %>/items/<%= it.id %>/stage" class="d-flex gap-2">
+        <select class="form-select form-select-sm flex-grow-1" name="stage">
+          <% ORDER_STATUSES.forEach(function(s){ %>
+            <option value="<%= s %>" <%= it.stage===s?'selected':'' %>><%= s %></option>
+          <% }) %>
+        </select>
+        <button class="btn btn-sm btn-brand">حفظ</button>
+      </form>
+    </div>
     <% }) %>
-    </tbody>
-  </table>
+  </div>
 </div>
 
 <div class="row g-3 mb-3">

@@ -4,11 +4,11 @@
 
 <!-- Mobile bottom navigation -->
 <nav class="bottom-nav d-lg-none">
-  <a href="/"        class="bottom-nav-item"><span class="bnav-icon">📊</span><span>الرئيسية</span></a>
-  <a href="/orders"  class="bottom-nav-item"><span class="bnav-icon">📦</span><span>الطلبات</span></a>
-  <a href="/search"  class="bottom-nav-item bottom-nav-scan"><span class="bnav-icon">🔎</span><span>بحث</span></a>
-  <a href="/prep"    class="bottom-nav-item"><span class="bnav-icon">🗂️</span><span>تجهيز</span></a>
-  <a href="/barcode" class="bottom-nav-item"><span class="bnav-icon">📷</span><span>مسح</span></a>
+  <a href="/"           class="bottom-nav-item <%= path==='/'?'active':'' %>"><span class="bnav-icon">📊</span><span>الرئيسية</span></a>
+  <a href="/orders"     class="bottom-nav-item <%= path.startsWith('/orders')?'active':'' %>"><span class="bnav-icon">📦</span><span>الطلبات</span></a>
+  <a href="/production" class="bottom-nav-item bottom-nav-scan <%= path.startsWith('/production')?'active':'' %>"><span class="bnav-icon">⚙️</span><span>الإنتاج</span></a>
+  <a href="/scanner"    class="bottom-nav-item <%= path.startsWith('/scanner')?'active':'' %>"><span class="bnav-icon">🔬</span><span>ماسح</span></a>
+  <a href="/prep"       class="bottom-nav-item <%= path.startsWith('/prep')?'active':'' %>"><span class="bnav-icon">🗂️</span><span>تجهيز</span></a>
 </nav>
 <% } %>
 

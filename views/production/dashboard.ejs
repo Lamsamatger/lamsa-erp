@@ -1,0 +1,387 @@
+<%- include('../partials/head', {title: 'إدارة الإنتاج'}) %>
+
+<style>
+/* ── Production Dashboard ── */
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; }
+
+.prod-kpi { background:#fff; border-radius:14px; padding:18px 20px; box-shadow:0 2px 10px rgba(0,0,0,.06); border-top:4px solid var(--navy); height:100%; }
+.prod-kpi.kpi-green  { border-top-color:var(--green); }
+.prod-kpi.kpi-red    { border-top-color:var(--red); }
+.prod-kpi.kpi-gold   { border-top-color:var(--gold); }
+.prod-kpi.kpi-orange { border-top-color:var(--orange); }
+.prod-kpi .kpi-num   { font-size:2.2rem; font-weight:900; line-height:1; color:var(--navy); }
+.prod-kpi .kpi-lbl   { font-size:.82rem; color:#888; margin-top:4px; }
+.prod-kpi .kpi-sub   { font-size:.75rem; color:#aaa; margin-top:6px; }
+
+/* Pipeline bar */
+.pipeline-wrap { display:flex; gap:0; overflow-x:auto; padding:4px 0 8px; scrollbar-width:thin; }
+.pipeline-step {
+  flex:1; min-width:110px; display:flex; flex-direction:column; align-items:center;
+  position:relative; padding:0 4px;
+}
+.pipeline-step:not(:last-child)::after {
+  content:''; position:absolute; top:24px; left:0; width:100%; height:3px;
+  background:#e5e7eb; z-index:0;
+}
+.pipeline-step.has-orders::after { background:linear-gradient(90deg,var(--gold),#e5e7eb); }
+.ps-bubble {
+  width:48px; height:48px; border-radius:50%; background:#f3f4f6;
+  border:2.5px solid #e0e0e0; display:flex; align-items:center;
+  justify-content:center; font-size:1.15rem; font-weight:900; color:#bbb;
+  position:relative; z-index:1; transition:all .2s;
+}
+.pipeline-step.has-orders .ps-bubble { background:var(--navy); border-color:var(--navy); color:var(--gold); }
+.pipeline-step.has-delayed .ps-bubble { background:#fef3c7; border-color:var(--orange); color:var(--orange); }
+.ps-lbl { font-size:.7rem; color:#888; margin-top:6px; text-align:center; line-height:1.3; font-weight:600; }
+.pipeline-step.has-orders .ps-lbl { color:var(--navy); font-weight:700; }
+
+/* Workshop table */
+.ws-perf-table { font-size:.88rem; }
+.ws-perf-table thead th { background:#f8fafc; font-size:.75rem; font-weight:700; color:#888; }
+.ws-bar-wrap { height:6px; background:#e5e7eb; border-radius:10px; overflow:hidden; margin-top:3px; }
+.ws-bar-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,var(--green),var(--gold)); }
+
+/* Error alert list */
+.err-item {
+  background:#fff8f8; border:1.5px solid #fecaca; border-radius:10px;
+  padding:11px 14px; margin-bottom:8px; display:flex; align-items:flex-start; gap:10px;
+}
+.err-item.resolved { background:#f0fdf4; border-color:#bbf7d0; opacity:.7; }
+.err-dot { width:10px; height:10px; border-radius:50%; background:var(--red); margin-top:4px; flex-shrink:0; }
+.err-item.resolved .err-dot { background:var(--green); }
+.err-body { flex:1; min-width:0; }
+.err-type { font-size:.85rem; font-weight:700; color:#991b1b; }
+.err-item.resolved .err-type { color:#15803d; }
+.err-meta { font-size:.75rem; color:#888; margin-top:2px; }
+
+/* Order row cards (mobile) */
+.prod-order-card {
+  background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.07);
+  padding:14px 16px; margin-bottom:10px; border-right:4px solid #e0e0e0; cursor:pointer;
+  text-decoration:none; color:inherit; display:block; transition:box-shadow .15s;
+}
+.prod-order-card:hover { box-shadow:0 3px 14px rgba(0,0,0,.12); color:inherit; }
+.prod-order-card.late { border-right-color:var(--red); background:#fffbf8; }
+.poc-top { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.poc-num { font-weight:900; font-size:.95rem; color:var(--navy); font-family:monospace; }
+.poc-status { padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; }
+.poc-late { padding:3px 8px; background:#fef3c7; color:#92400e; border-radius:20px; font-size:.72rem; font-weight:700; }
+.poc-stats { display:flex; gap:12px; flex-wrap:wrap; font-size:.78rem; color:#555; }
+.poc-progress { margin-top:8px; }
+.poc-progress-bar { height:5px; background:#e5e7eb; border-radius:10px; overflow:hidden; }
+.poc-progress-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,var(--green),var(--gold)); }
+
+/* Filter bar */
+.filter-card { background:#fff; border-radius:12px; padding:14px 16px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+
+/* Section card */
+.sec-panel { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:20px; overflow:hidden; }
+.sec-panel-hd { padding:14px 18px; border-bottom:1px solid #f0f0f0; font-weight:800; font-size:.92rem; color:var(--navy); display:flex; align-items:center; gap:8px; }
+.sec-panel-body { padding:16px 18px; }
+
+@media (max-width:768px) {
+  .prod-kpi .kpi-num { font-size:1.7rem; }
+  .pipeline-wrap { padding-bottom:4px; }
+}
+</style>
+
+<!-- ── Page header ── -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="page-title mb-0">⚙️ إدارة الإنتاج</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/production" class="btn btn-outline-secondary btn-sm">🔄 تحديث</a>
+    <a href="/prep" class="btn btn-outline-primary btn-sm">🗂️ قوائم التجهيز</a>
+    <a href="/scanner" class="btn btn-sm" style="background:var(--navy);color:#fff;font-weight:600">🔬 ماسح الإنتاج</a>
+  </div>
+</div>
+
+<!-- ── KPI Cards ── -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="prod-kpi">
+      <div class="kpi-num"><%= kpi.active %></div>
+      <div class="kpi-lbl">📦 طلبات قيد الإنتاج</div>
+      <div class="kpi-sub"><%= kpi.totalPieces %> قطعة إجمالاً</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="prod-kpi kpi-red">
+      <div class="kpi-num" style="color:<%= kpi.delayed>0?'var(--red)':'var(--navy)' %>"><%= kpi.delayed %></div>
+      <div class="kpi-lbl">⏰ طلبات متأخرة</div>
+      <div class="kpi-sub">أكثر من <%= DELAY_DAYS_THRESHOLD %> أيام</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="prod-kpi kpi-green">
+      <div class="kpi-num" style="color:var(--green)"><%= kpi.doneToday %></div>
+      <div class="kpi-lbl">✅ منجزة اليوم</div>
+      <div class="kpi-sub">إجمالي منجز: <%= kpi.completedPieces %> ق</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="prod-kpi kpi-orange">
+      <div class="kpi-num" style="color:<%= kpi.openErrors>0?'var(--orange)':'var(--navy)' %>"><%= kpi.openErrors %></div>
+      <div class="kpi-lbl">⚠️ أخطاء مفتوحة</div>
+      <div class="kpi-sub">رفض جودة: <%= kpi.qcRejected %> قطعة</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Production Pipeline ── -->
+<div class="sec-panel mb-4">
+  <div class="sec-panel-hd">📊 مسار الإنتاج — توزيع الطلبات</div>
+  <div class="sec-panel-body">
+    <div class="pipeline-wrap">
+      <% var pipelineStages = [
+        {status:'جديد', icon:'🆕'},
+        {status:'مراجعة', icon:'🔍'},
+        {status:'تجهيز', icon:'✂️'},
+        {status:'عند المشغل', icon:'🏭'},
+        {status:'مستلم من المشغل', icon:'📥'},
+        {status:'عند المطرز', icon:'🧵'},
+        {status:'جاهز للتغليف', icon:'📦'},
+        {status:'تم التنفيذ', icon:'✅'}
+      ];
+      %>
+      <% pipelineStages.forEach(function(ps) {
+        var cnt = stageCountMap[ps.status] || 0;
+        var delayedCnt = delayedByStage[ps.status] || 0;
+        var cls = cnt > 0 ? (delayedCnt > 0 ? 'has-delayed has-orders' : 'has-orders') : '';
+      %>
+      <div class="pipeline-step <%= cls %>">
+        <div class="ps-bubble" title="<%= ps.status %>: <%= cnt %> طلب">
+          <% if (cnt > 0) { %><%= cnt %><% } else { %><%= ps.icon %><% } %>
+        </div>
+        <div class="ps-lbl">
+          <%= ps.status %>
+          <% if (delayedCnt > 0) { %><br><span style="color:var(--orange)">⏰ <%= delayedCnt %></span><% } %>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+    <div class="d-flex gap-3 mt-2" style="font-size:.75rem;color:#888;">
+      <span>⬤ <span style="color:var(--navy)">بها طلبات</span></span>
+      <span>⬤ <span style="color:var(--orange)">متأخرة</span></span>
+      <span>⬤ <span style="color:#ccc">فارغة</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Workshop Performance + Error Alerts ── -->
+<div class="row g-3 mb-4">
+  <!-- Workshop performance -->
+  <div class="col-lg-7">
+    <div class="sec-panel h-100">
+      <div class="sec-panel-hd">🏭 أداء المشاغل</div>
+      <div class="sec-panel-body p-0">
+        <% if (!workshopStats.length) { %>
+        <div class="text-center py-4 text-muted" style="font-size:.88rem;">لا توجد مشاغل مسجلة</div>
+        <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sm ws-perf-table mb-0">
+            <thead>
+              <tr>
+                <th>المشغل</th>
+                <th class="text-center">عمل حالي</th>
+                <th class="text-center">تسليم</th>
+                <th class="text-center">استلام</th>
+                <th style="min-width:90px">الإنجاز</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% workshopStats.forEach(function(w) {
+                var pct = w.totalDelivered > 0 ? Math.round(w.totalReceived / w.totalDelivered * 100) : 0;
+              %>
+              <tr>
+                <td><strong><%= w.name %></strong></td>
+                <td class="text-center">
+                  <% if (w.activeJobs > 0) { %>
+                  <span class="badge bg-warning text-dark"><%= w.activeJobs %> طلب</span>
+                  <% } else { %>
+                  <span class="text-muted">—</span>
+                  <% } %>
+                </td>
+                <td class="text-center"><%= w.totalDelivered %> ق</td>
+                <td class="text-center"><%= w.totalReceived %> ق</td>
+                <td>
+                  <div style="font-size:.78rem;font-weight:700;color:<%= pct===100?'var(--green)':'var(--navy)' %>"><%= pct %>%</div>
+                  <div class="ws-bar-wrap"><div class="ws-bar-fill" style="width:<%= pct %>%"></div></div>
+                </td>
+                <td><a href="/workshops/<%= w.id %>" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px;">عرض</a></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Alerts -->
+  <div class="col-lg-5">
+    <div class="sec-panel h-100">
+      <div class="sec-panel-hd d-flex justify-content-between align-items-center">
+        <span>⚠️ تنبيهات الأخطاء</span>
+        <span class="badge bg-danger"><%= openErrors.length %></span>
+      </div>
+      <div class="sec-panel-body">
+        <% if (!openErrors.length) { %>
+        <div class="text-center py-3" style="font-size:.88rem;color:#888;">
+          <div style="font-size:2rem;margin-bottom:6px">✅</div>
+          لا توجد أخطاء مفتوحة
+        </div>
+        <% } else { %>
+          <% openErrors.forEach(function(e) { %>
+          <div class="err-item">
+            <div class="err-dot"></div>
+            <div class="err-body">
+              <div class="err-type"><%= e.error_type %></div>
+              <div class="err-meta">
+                <a href="/production/order/<%= e.order_id %>?tab=errors" style="color:inherit;font-weight:700;font-family:monospace"><%= e.order_number %></a>
+                · <%= e.department || 'غير محدد' %>
+                <% if (e.reason) { %><br><%= e.reason.substring(0, 60) %><% if (e.reason.length > 60) { %>…<% } %><% } %>
+              </div>
+            </div>
+          </div>
+          <% }) %>
+          <% if (openErrors.length >= 5) { %>
+          <div class="text-center mt-2">
+            <a href="/production?tab=errors" class="btn btn-sm btn-outline-danger" style="font-size:.78rem;">عرض كل الأخطاء</a>
+          </div>
+          <% } %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Active Orders List ── -->
+<div class="sec-panel">
+  <div class="sec-panel-hd d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span>📋 الطلبات النشطة</span>
+    <span class="badge bg-primary"><%= orders.length %></span>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="px-3 py-2 border-bottom" style="background:#f8fafc;">
+    <form method="GET" action="/production" class="d-flex gap-2 flex-wrap align-items-end">
+      <div>
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;color:#888;">الحالة</label>
+        <select name="status" class="form-select form-select-sm" style="min-width:130px;">
+          <option value="">كل الحالات</option>
+          <% ORDER_STATUSES.filter(s => !['تم التنفيذ','ملغي'].includes(s)).forEach(function(s){ %>
+          <option value="<%= s %>" <%= filters.status===s?'selected':'' %>><%= s %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div>
+        <label class="form-label mb-1" style="font-size:.75rem;font-weight:600;color:#888;">المشغل</label>
+        <select name="workshop_id" class="form-select form-select-sm" style="min-width:130px;">
+          <option value="">كل المشاغل</option>
+          <% workshops.forEach(function(w){ %>
+          <option value="<%= w.id %>" <%= filters.workshop_id===w.id?'selected':'' %>><%= w.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="d-flex align-items-end gap-2">
+        <div class="form-check form-check-inline mt-2 mb-0">
+          <input class="form-check-input" type="checkbox" name="delay" value="1" id="chkDelay" <%= filters.delay==='1'?'checked':'' %>>
+          <label class="form-check-label" for="chkDelay" style="font-size:.82rem;">متأخرة فقط</label>
+        </div>
+        <button type="submit" class="btn btn-sm btn-brand">فلترة</button>
+        <a href="/production" class="btn btn-sm btn-outline-secondary">مسح</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Orders — desktop table -->
+  <div class="table-responsive d-none d-md-block">
+    <table class="table table-hover mb-0" style="font-size:.88rem;">
+      <thead style="background:#f8fafc;">
+        <tr>
+          <th>رقم الطلب</th>
+          <th>الحالة</th>
+          <th>القطع</th>
+          <th>التقدم</th>
+          <th>المشغل</th>
+          <th>الأيام</th>
+          <th>الأخطاء</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (!orders.length) { %>
+        <tr><td colspan="8" class="text-center py-4 text-muted">لا توجد طلبات بهذه الفلاتر</td></tr>
+        <% } %>
+        <% orders.forEach(function(o) { %>
+        <tr class="<%= o.late ? 'table-warning' : '' %>">
+          <td>
+            <a href="/production/order/<%= o.id %>" style="font-weight:800;font-family:monospace;color:var(--navy)"><%= o.order_number %></a>
+            <% if (o.late) { %><span class="badge bg-warning text-dark ms-1" style="font-size:.65rem;">⏰ متأخر</span><% } %>
+            <% if (o.errors > 0) { %><span class="badge bg-danger ms-1" style="font-size:.65rem;">⚠️ <%= o.errors %></span><% } %>
+          </td>
+          <td><span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %>"><%= o.status %></span></td>
+          <td>
+            <div style="font-weight:700"><%= o.totalQty %> ق</div>
+            <div style="font-size:.72rem;color:#888;"><%= o.doneQty %> منجز</div>
+          </td>
+          <td style="min-width:100px;">
+            <div style="font-size:.78rem;font-weight:700;color:<%= o.progressPct===100?'var(--green)':'var(--navy)' %>"><%= o.progressPct %>%</div>
+            <div style="height:5px;background:#e5e7eb;border-radius:10px;overflow:hidden;margin-top:3px;">
+              <div style="height:100%;width:<%= o.progressPct %>%;background:linear-gradient(90deg,var(--green),var(--gold));border-radius:10px;"></div>
+            </div>
+          </td>
+          <td style="font-size:.82rem;color:#555;"><%= o.workshop ? o.workshop.name : '<span class="text-muted">—</span>' %></td>
+          <td>
+            <span style="font-weight:700;color:<%= o.late?'var(--red)':'#555' %>"><%= o.daysSince %></span>
+            <span style="font-size:.72rem;color:#888;"> يوم</span>
+          </td>
+          <td>
+            <% if (o.errors > 0) { %>
+            <span class="badge bg-danger"><%= o.errors %></span>
+            <% } else { %>
+            <span style="color:#ccc;">—</span>
+            <% } %>
+          </td>
+          <td>
+            <a href="/production/order/<%= o.id %>" class="btn btn-sm btn-outline-primary" style="font-size:.78rem;">تفاصيل</a>
+          </td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Orders — mobile cards -->
+  <div class="d-md-none p-3">
+    <% if (!orders.length) { %>
+    <div class="text-center py-4 text-muted">لا توجد طلبات</div>
+    <% } %>
+    <% orders.forEach(function(o) { %>
+    <a href="/production/order/<%= o.id %>" class="prod-order-card <%= o.late?'late':'' %>">
+      <div class="poc-top">
+        <span class="poc-num"><%= o.order_number %></span>
+        <span class="poc-status bg-<%= STATUS_COLORS[o.status]||'secondary' %> text-white"><%= o.status %></span>
+        <% if (o.late) { %><span class="poc-late">⏰ متأخر</span><% } %>
+      </div>
+      <div class="poc-stats">
+        <span>📦 <%= o.totalQty %> قطعة</span>
+        <% if (o.workshop) { %><span>🏭 <%= o.workshop.name %></span><% } %>
+        <span>⏱ <%= o.daysSince %> يوم</span>
+        <% if (o.errors > 0) { %><span style="color:var(--red)">⚠️ <%= o.errors %> أخطاء</span><% } %>
+      </div>
+      <div class="poc-progress mt-2">
+        <div class="d-flex justify-content-between" style="font-size:.72rem;color:#888;margin-bottom:3px;">
+          <span>التقدم</span>
+          <span style="font-weight:700;color:<%= o.progressPct===100?'var(--green)':'var(--navy)' %>"><%= o.progressPct %>%</span>
+        </div>
+        <div class="poc-progress-bar"><div class="poc-progress-fill" style="width:<%= o.progressPct %>%"></div></div>
+      </div>
+    </a>
+    <% }) %>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>
