@@ -1,0 +1,171 @@
+<%- include('../partials/head', {title: 'المخزون'}) %>
+<style>
+:root{--navy:#1a2d4a;--gold:#c9a24b;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6;--teal:#0d9488;--purple:#7c3aed}
+
+/* KPI */
+.inv-kpi{background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 2px 10px rgba(0,0,0,.06);border-top:4px solid var(--navy);height:100%}
+.inv-kpi.g{border-top-color:var(--green)}.inv-kpi.o{border-top-color:var(--orange)}.inv-kpi.r{border-top-color:var(--red)}.inv-kpi.b{border-top-color:var(--blue)}
+.kpi-n{font-size:2rem;font-weight:900;line-height:1;color:var(--navy)}.kpi-l{font-size:.78rem;color:#888;margin-top:3px}
+
+/* Category cards */
+.cat-card{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);height:100%;position:relative;overflow:hidden;transition:box-shadow .15s}
+.cat-card:hover{box-shadow:0 4px 18px rgba(0,0,0,.12)}
+.cat-icon{font-size:2.2rem;margin-bottom:8px}
+.cat-name{font-weight:800;color:var(--navy);font-size:.95rem}
+.cat-count{font-size:.78rem;color:#888;margin-top:2px}
+.cat-qty{font-size:1.3rem;font-weight:900;color:var(--navy);margin-top:6px}
+.cat-unit{font-size:.72rem;color:#aaa}
+.cat-link{position:absolute;inset:0;z-index:1}
+.cat-alert{position:absolute;top:10px;left:12px;font-size:.7rem;font-weight:700}
+
+/* Alert banners */
+.inv-alert{border-radius:12px;padding:11px 16px;margin-bottom:10px;font-size:.85rem;display:flex;align-items:flex-start;gap:10px}
+.inv-alert.danger{background:#fef2f2;border:1.5px solid #fca5a5;color:#991b1b}
+.inv-alert.warn{background:#fffbeb;border:1.5px solid #fcd34d;color:#92400e}
+.inv-alert .alert-items{font-weight:700;margin-top:3px;line-height:1.6}
+
+/* Quick actions */
+.qa-btn{display:flex;flex-direction:column;align-items:center;gap:5px;background:#fff;border:1.5px solid #e5e7eb;border-radius:14px;padding:14px 10px;text-decoration:none;color:var(--navy);font-size:.78rem;font-weight:700;transition:all .15s;flex:1;min-width:70px}
+.qa-btn:hover{border-color:var(--gold);color:var(--navy);box-shadow:0 3px 10px rgba(0,0,0,.1)}
+.qa-btn .qa-icon{font-size:1.5rem}
+
+/* Movements table */
+.sec-hd{font-weight:800;font-size:.95rem;color:var(--navy);padding:14px 0 10px;display:flex;align-items:center;gap:7px}
+.mov-table{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden}
+.mov-table table{margin-bottom:0;font-size:.82rem}
+.mov-table thead th{background:#f8fafc;font-weight:700;color:#555;padding:10px 12px;white-space:nowrap}
+.mov-table tbody td{padding:10px 12px;vertical-align:middle}
+.mov-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap}
+.mov-recv{background:#dcfce7;color:#166534}.mov-issue{background:#fee2e2;color:#991b1b}
+.mov-ret{background:#dbeafe;color:#1e40af}.mov-adj{background:#f3e8ff;color:#6b21a8}.mov-cnt{background:#fef9c3;color:#854d0e}
+.qty-pos{color:var(--green);font-weight:700}.qty-neg{color:var(--red);font-weight:700}
+.item-link{color:var(--navy);font-weight:700;text-decoration:none}.item-link:hover{color:var(--gold)}
+
+/* Stock status pill */
+.stk-ok{background:#dcfce7;color:#166534}.stk-low{background:#fef3c7;color:#92400e}.stk-out{background:#fee2e2;color:#991b1b}
+.stk-pill{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.7rem;font-weight:700}
+
+@media(max-width:576px){
+  .kpi-n{font-size:1.6rem}
+  .qa-btn{padding:10px 6px;font-size:.72rem}
+  .mov-table .d-none-xs{display:none!important}
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="page-title mb-0">🏭 إدارة المخزون</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/inventory/items/new" class="btn btn-sm btn-brand">+ صنف جديد</a>
+    <a href="/inventory/reports"   class="btn btn-sm btn-outline-secondary">📊 التقارير</a>
+    <a href="/inventory/movements" class="btn btn-sm btn-outline-secondary">🔄 السجل</a>
+  </div>
+</div>
+
+<%/* ── Alerts ── */%>
+<% if (outOfStockItems.length) { %>
+<div class="inv-alert danger">
+  <span style="font-size:1.3rem;flex-shrink:0">❌</span>
+  <div>
+    <strong>نفاد مخزون (<%= outOfStockItems.length %> صنف)</strong>
+    <div class="alert-items"><%= outOfStockItems.map(function(i){return i.name}).join(' · ') %></div>
+  </div>
+</div>
+<% } %>
+<% if (lowStockItems.length) { %>
+<div class="inv-alert warn">
+  <span style="font-size:1.3rem;flex-shrink:0">⚠️</span>
+  <div>
+    <strong>مخزون منخفض (<%= lowStockItems.length %> صنف)</strong>
+    <div class="alert-items"><%= lowStockItems.map(function(i){return i.name + ' (' + i.qty + ' ' + i.unit + ')'}).join(' · ') %></div>
+  </div>
+</div>
+<% } %>
+
+<%/* ── KPIs ── */%>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="inv-kpi g">
+    <div class="kpi-n"><%= kpi.totalSkus %></div><div class="kpi-l">📦 إجمالي الأصناف</div>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="inv-kpi b">
+    <div class="kpi-n"><%= allItems.reduce(function(s,i){return s+(i.qty||0)},0).toLocaleString('ar-SA') %></div><div class="kpi-l">📊 إجمالي الوحدات</div>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="inv-kpi o">
+    <div class="kpi-n"><%= kpi.lowStock %></div><div class="kpi-l">⚠️ أصناف منخفضة</div>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="inv-kpi r">
+    <div class="kpi-n"><%= kpi.outOfStock %></div><div class="kpi-l">❌ نفاد المخزون</div>
+  </div></div>
+</div>
+
+<%/* ── Quick actions ── */%>
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  <a href="/inventory/items/new"  class="qa-btn"><span class="qa-icon">➕</span>صنف جديد</a>
+  <a href="/inventory/items?status=low" class="qa-btn"><span class="qa-icon">⚠️</span>المنخفضة</a>
+  <a href="/inventory/items?status=out" class="qa-btn"><span class="qa-icon">❌</span>النافدة</a>
+  <a href="/inventory/items"      class="qa-btn"><span class="qa-icon">📋</span>كل الأصناف</a>
+  <a href="/inventory/movements"  class="qa-btn"><span class="qa-icon">🔄</span>الحركات</a>
+  <a href="/inventory/reports"    class="qa-btn"><span class="qa-icon">📊</span>التقارير</a>
+</div>
+
+<%/* ── Category cards ── */%>
+<div class="sec-hd">📁 الأصناف حسب الفئة</div>
+<% var catIcons={'قماش':'🧵','إكسسوار':'🔩','منتج جاهز':'👗','أخرى':'📦'}; %>
+<div class="row g-3 mb-4">
+<% ITEM_CATEGORIES.forEach(function(cat){ var cs=catStats[cat]||{count:0,totalQty:0,lowCount:0}; %>
+  <div class="col-6 col-lg-3">
+    <div class="cat-card">
+      <a href="/inventory/items?category=<%= encodeURIComponent(cat) %>" class="cat-link" title="عرض <%= cat %>"></a>
+      <div class="cat-icon"><%= catIcons[cat]||'📦' %></div>
+      <div class="cat-name"><%= cat %></div>
+      <div class="cat-count"><%= cs.count %> صنف</div>
+      <div class="cat-qty"><%= cs.totalQty.toLocaleString('ar-SA') %> <span class="cat-unit">وحدة</span></div>
+      <% if (cs.lowCount > 0) { %><span class="cat-alert badge bg-warning text-dark"><%= cs.lowCount %> منخفض</span><% } %>
+    </div>
+  </div>
+<% }) %>
+</div>
+
+<%/* ── Recent movements ── */%>
+<div class="sec-hd">
+  🔄 آخر الحركات
+  <a href="/inventory/movements" style="font-size:.78rem;color:var(--gold);margin-right:auto;font-weight:600;text-decoration:none">عرض الكل ←</a>
+</div>
+
+<% if (!recentMovements.length) { %>
+<div style="background:#fff;border-radius:14px;padding:40px;text-align:center;color:#aaa;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:20px">
+  <div style="font-size:2.5rem;margin-bottom:10px">📭</div>لا توجد حركات مخزون بعد
+</div>
+<% } else { %>
+<div class="mov-table mb-4">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr>
+        <th>النوع</th><th>الصنف</th><th>الكمية</th>
+        <th class="d-none-xs">الطلب</th>
+        <th class="d-none-xs">الموظف</th>
+        <th>التاريخ</th>
+      </tr></thead>
+      <tbody>
+      <% recentMovements.forEach(function(m){
+        var typeClass = m.type==='استلام'?'mov-recv':m.type==='صرف'?'mov-issue':m.type==='إرجاع'?'mov-ret':m.type==='تسوية'?'mov-adj':'mov-cnt';
+        var qtySign = m.qty>0?'+':'';
+        var qtyClass = m.qty>=0?'qty-pos':'qty-neg';
+      %>
+        <tr>
+          <td><span class="mov-type <%= typeClass %>"><%= m.type %></span></td>
+          <td><a href="/inventory/items/<%= m.item_id %>" class="item-link"><%= m.item_name %></a></td>
+          <td class="<%= qtyClass %>"><%= qtySign %><%= Math.abs(m.qty) %> <%= m.item&&m.item.unit ?m.item.unit:'' %></td>
+          <td class="d-none-xs">
+            <% if (m.order_number) { %><a href="/orders/<%= m.order_id %>" style="font-family:monospace;font-size:.8rem;color:var(--navy)"><%= m.order_number %></a><% } else { %><span class="text-muted">—</span><% } %>
+          </td>
+          <td class="d-none-xs" style="font-size:.78rem;color:#666"><%= m.user_name %></td>
+          <td style="font-size:.75rem;color:#888;white-space:nowrap"><%= new Date(m.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>

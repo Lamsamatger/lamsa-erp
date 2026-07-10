@@ -1,0 +1,191 @@
+<%- include('../partials/head', {title: 'تقارير المخزون'}) %>
+<style>
+:root{--navy:#1a2d4a;--gold:#c9a24b;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6}
+.rep-tabs{display:flex;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:18px}
+.rep-tab{flex:1;padding:13px 8px;text-align:center;text-decoration:none;color:#666;font-size:.82rem;font-weight:700;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
+.rep-tab:hover{color:var(--navy);background:#f8fafc}
+.rep-tab.active{color:var(--navy);border-bottom-color:var(--gold);background:#fffbf0}
+.rep-tab .ti{font-size:1rem;display:block;margin-bottom:2px}
+
+.kpi-sm{background:#fff;border-radius:12px;padding:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);text-align:center}
+.kpi-sm .kn{font-size:1.5rem;font-weight:900;color:var(--navy)}.kpi-sm .kl{font-size:.75rem;color:#888;margin-top:2px}
+
+.rep-table{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden}
+.rep-table table{margin-bottom:0;font-size:.82rem}
+.rep-table thead th{background:#f8fafc;font-weight:700;color:#555;padding:11px 14px;white-space:nowrap;border-bottom:2px solid #eef0f4}
+.rep-table tbody td{padding:11px 14px;vertical-align:middle;border-bottom:1px solid #f5f5f5}
+.sec-hd{font-weight:800;font-size:.9rem;color:var(--navy);padding:14px 0 10px;display:flex;align-items:center;gap:7px}
+.cat-section{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px;overflow:hidden}
+.cat-hd{padding:12px 16px;background:linear-gradient(90deg,var(--navy) 0%,#2d4a6e 100%);color:#fff;font-weight:800;font-size:.9rem;display:flex;justify-content:space-between;align-items:center}
+.cat-hd .cat-stat{font-size:.78rem;opacity:.8}
+.stk-ok{background:#dcfce7;color:#166534}.stk-low{background:#fef3c7;color:#92400e}.stk-out{background:#fee2e2;color:#991b1b}
+.stk-pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.7rem;font-weight:700}
+.mov-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.mov-recv{background:#dcfce7;color:#166534}.mov-issue{background:#fee2e2;color:#991b1b}
+.mov-ret{background:#dbeafe;color:#1e40af}.mov-adj{background:#f3e8ff;color:#6b21a8}.mov-cnt{background:#fef9c3;color:#854d0e}
+.qty-neg{color:var(--red);font-weight:700}.qty-pos{color:var(--green);font-weight:700}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">📊 تقارير المخزون</h1>
+  <a href="/inventory" class="btn btn-sm btn-outline-secondary">← المخزون</a>
+</div>
+
+<!-- KPI summary -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="kpi-sm">
+    <div class="kn"><%= totalItems %></div><div class="kl">إجمالي الأصناف</div>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-sm">
+    <div class="kn"><%= totalValue.toLocaleString('ar-SA',{minimumFractionDigits:0,maximumFractionDigits:0}) %> ر.س</div>
+    <div class="kl">القيمة التقديرية</div>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-sm">
+    <div class="kn"><%= recentMovements.filter(function(m){return m.type==='صرف'}).length %></div>
+    <div class="kl">عمليات صرف (آخر 100)</div>
+  </div></div>
+  <div class="col-6 col-lg-3"><div class="kpi-sm">
+    <div class="kn"><%= recentMovements.filter(function(m){return m.type==='استلام'}).length %></div>
+    <div class="kl">عمليات استلام (آخر 100)</div>
+  </div></div>
+</div>
+
+<!-- Tabs -->
+<div class="rep-tabs">
+  <a href="?tab=stock"   class="rep-tab <%= tab==='stock'?'active':'' %>"><span class="ti">📦</span>تقرير المخزون</a>
+  <a href="?tab=usage"   class="rep-tab <%= tab==='usage'?'active':'' %>"><span class="ti">📤</span>الاستهلاك</a>
+  <a href="?tab=history" class="rep-tab <%= tab==='history'?'active':'' %>"><span class="ti">🔄</span>سجل الحركات</a>
+</div>
+
+
+<!-- ══ STOCK REPORT ══ -->
+<% if (tab==='stock') { %>
+<% ITEM_CATEGORIES.forEach(function(cat){
+  var cs = stockByCat[cat];
+  if (!cs || !cs.items.length) return;
+%>
+<div class="cat-section">
+  <div class="cat-hd">
+    <span><%= cat %> (<%= cs.items.length %> صنف)</span>
+    <span class="cat-stat">
+      إجمالي: <%= cs.totalQty.toLocaleString('ar-SA') %> وحدة ·
+      قيمة: <%= cs.totalValue.toLocaleString('ar-SA',{minimumFractionDigits:0,maximumFractionDigits:0}) %> ر.س
+    </span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0" style="font-size:.82rem">
+      <thead><tr>
+        <th>الصنف</th><th>SKU</th><th>اللون</th>
+        <th>الكمية المتاحة</th><th>الحد الأدنى</th>
+        <th>تكلفة الوحدة</th><th>القيمة الإجمالية</th><th>الحالة</th>
+      </tr></thead>
+      <tbody>
+      <% cs.items.forEach(function(it){
+        var stk = it.qty<=0?'out':(it.qty<=(it.low_stock_threshold||0)?'low':'ok');
+        var stkLabel = stk==='ok'?'✅ متوفر':stk==='low'?'⚠️ منخفض':'❌ نافد';
+        var totalVal = (it.qty||0)*(it.cost_per_unit||0);
+      %>
+        <tr>
+          <td><a href="/inventory/items/<%= it.id %>" style="font-weight:700;color:var(--navy);text-decoration:none"><%= it.name %></a></td>
+          <td style="font-family:monospace;font-size:.75rem;color:#666"><%= it.sku||'—' %></td>
+          <td style="color:#666"><%= it.color||'—' %></td>
+          <td><strong><%= it.qty %></strong> <small style="color:#888"><%= it.unit %></small></td>
+          <td style="color:#888"><%= it.low_stock_threshold||0 %> <%= it.unit %></td>
+          <td style="color:#555"><%= it.cost_per_unit ? it.cost_per_unit.toFixed(2)+' ر.س' : '—' %></td>
+          <td style="font-weight:700;color:var(--navy)"><%= totalVal ? totalVal.toLocaleString('ar-SA',{minimumFractionDigits:0,maximumFractionDigits:0})+' ر.س' : '—' %></td>
+          <td><span class="stk-pill stk-<%= stk %>"><%= stkLabel %></span></td>
+        </tr>
+      <% }) %>
+      <tr style="background:#f8fafc;font-weight:700">
+        <td colspan="3">الإجمالي</td>
+        <td><strong><%= cs.totalQty.toLocaleString('ar-SA') %></strong></td>
+        <td></td><td></td>
+        <td style="color:var(--navy)"><strong><%= cs.totalValue.toLocaleString('ar-SA',{minimumFractionDigits:0,maximumFractionDigits:0}) %> ر.س</strong></td>
+        <td></td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% }) %>
+<% } %>
+
+
+<!-- ══ USAGE BY ORDER ══ -->
+<% if (tab==='usage') { %>
+<% if (!usageByOrder.length) { %>
+<div style="background:#fff;border-radius:16px;padding:50px;text-align:center;color:#aaa;box-shadow:0 2px 10px rgba(0,0,0,.06)">
+  <div style="font-size:2.5rem;margin-bottom:10px">📭</div>
+  لا توجد بيانات صرف مرتبطة بطلبات بعد
+</div>
+<% } else { %>
+<div class="rep-table">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr>
+        <th>الطلب</th><th>الصنف</th><th>الكمية المصروفة</th><th>التاريخ</th><th>الموظف</th>
+      </tr></thead>
+      <tbody>
+      <% usageByOrder.sort(function(a,b){return b.items.length-a.items.length}).forEach(function(u){
+        var first = true;
+        u.items.forEach(function(m){
+      %>
+        <tr class="<%= first?'table-light':'' %>">
+          <td>
+            <% if (first) { %>
+            <a href="/orders/<%= u.order_id %>" style="font-weight:900;font-family:monospace;color:var(--navy)"><%= u.order_number %></a>
+            <% } %>
+          </td>
+          <td>
+            <a href="/inventory/items/<%= m.item_id %>" style="font-weight:700;color:var(--navy);text-decoration:none"><%= m.item_name %></a>
+          </td>
+          <td class="qty-neg"><%= Math.abs(m.qty) %></td>
+          <td style="font-size:.78rem;color:#888"><%= new Date(m.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %></td>
+          <td style="font-size:.78rem;color:#666"><%= m.user_name||'—' %></td>
+        </tr>
+      <% first=false; }); }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+<% } %>
+
+
+<!-- ══ MOVEMENT HISTORY ══ -->
+<% if (tab==='history') { %>
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <div style="font-size:.8rem;color:#888"><%= recentMovements.length %> حركة (آخر 100)</div>
+  <a href="/inventory/movements" class="btn btn-sm btn-outline-secondary">🔄 الصفحة الكاملة</a>
+</div>
+<div class="rep-table">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr>
+        <th>التاريخ</th><th>النوع</th><th>الصنف</th>
+        <th>الكمية</th><th>الطلب</th><th>الموظف</th>
+      </tr></thead>
+      <tbody>
+      <% recentMovements.forEach(function(m){
+        var tc = m.type==='استلام'?'mov-recv':m.type==='صرف'?'mov-issue':m.type==='إرجاع'?'mov-ret':m.type==='تسوية'?'mov-adj':'mov-cnt';
+        var qc = m.qty>=0?'qty-pos':'qty-neg';
+        var qs = m.qty>0?'+':'';
+      %>
+        <tr>
+          <td style="font-size:.75rem;color:#888;white-space:nowrap"><%= new Date(m.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></td>
+          <td><span class="mov-type <%= tc %>"><%= m.type %></span></td>
+          <td><a href="/inventory/items/<%= m.item_id %>" style="font-weight:700;color:var(--navy);text-decoration:none"><%= m.item_name %></a></td>
+          <td class="<%= qc %>"><%= qs %><%= Math.abs(m.qty) %></td>
+          <td>
+            <% if (m.order_number) { %><a href="/orders/<%= m.order_id %>" style="font-family:monospace;font-size:.78rem;color:var(--navy)"><%= m.order_number %></a><% } else { %>—<% } %>
+          </td>
+          <td style="font-size:.78rem;color:#666"><%= m.user_name||'—' %></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>

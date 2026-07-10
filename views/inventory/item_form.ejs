@@ -1,0 +1,113 @@
+<%- include('../partials/head', {title: item ? 'تعديل صنف' : 'صنف جديد'}) %>
+<style>
+:root{--navy:#1a2d4a;--gold:#c9a24b}
+.form-card{background:#fff;border-radius:16px;box-shadow:0 2px 14px rgba(0,0,0,.08);padding:24px;max-width:700px;margin:0 auto}
+.form-section{font-weight:800;font-size:.88rem;color:var(--navy);padding-bottom:8px;border-bottom:2px solid #f0f0f0;margin-bottom:16px;margin-top:24px}
+.form-section:first-of-type{margin-top:0}
+.form-label{font-weight:700;font-size:.82rem;color:#444;margin-bottom:5px}
+.form-control,.form-select{border-radius:10px;border:1.5px solid #e5e7eb;font-family:'Tajawal',sans-serif;font-size:.88rem;padding:10px 13px}
+.form-control:focus,.form-select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,75,.15);outline:none}
+.req{color:#ef4444}
+.hint{font-size:.72rem;color:#aaa;margin-top:3px}
+</style>
+
+<div class="mb-3">
+  <a href="/inventory/items" style="color:var(--navy);text-decoration:none;font-size:.85rem;font-weight:700">← المخزون</a>
+</div>
+
+<div class="form-card">
+  <h2 style="font-size:1.2rem;font-weight:900;color:var(--navy);margin-bottom:20px">
+    <%= item ? '✏️ تعديل: ' + item.name : '➕ إضافة صنف جديد' %>
+  </h2>
+
+  <form method="POST" action="<%= item ? '/inventory/items/'+item.id+'/edit' : '/inventory/items/new' %>">
+
+    <div class="form-section">المعلومات الأساسية</div>
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        <label class="form-label">اسم الصنف <span class="req">*</span></label>
+        <input type="text" name="name" class="form-control" required
+          value="<%= item ? item.name : '' %>" placeholder="مثال: قماش جيرسيه أبيض">
+      </div>
+      <div class="col-12 col-md-6">
+        <label class="form-label">رمز SKU</label>
+        <input type="text" name="sku" class="form-control" dir="ltr"
+          value="<%= item ? item.sku||'' : '' %>" placeholder="FAB-001">
+        <div class="hint">رمز مرجعي فريد للصنف (اختياري)</div>
+      </div>
+      <div class="col-6">
+        <label class="form-label">الفئة <span class="req">*</span></label>
+        <select name="category" class="form-select" required>
+          <option value="">— اختر —</option>
+          <% ITEM_CATEGORIES.forEach(function(c){ %>
+          <option value="<%= c %>" <%= item&&item.category===c?'selected':'' %>><%= c %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">وحدة القياس <span class="req">*</span></label>
+        <select name="unit" class="form-select" required>
+          <option value="">— اختر —</option>
+          <% INVENTORY_UNITS.forEach(function(u){ %>
+          <option value="<%= u %>" <%= item&&item.unit===u?'selected':'' %>><%= u %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-6">
+        <label class="form-label">اللون</label>
+        <input type="text" name="color" class="form-control"
+          value="<%= item ? item.color||'' : '' %>" placeholder="أبيض / بيج / …">
+      </div>
+      <div class="col-6">
+        <label class="form-label">المورّد</label>
+        <input type="text" name="supplier" class="form-control"
+          value="<%= item ? item.supplier||'' : '' %>" placeholder="اسم المورّد">
+      </div>
+    </div>
+
+    <div class="form-section">المخزون والتكلفة</div>
+    <div class="row g-3">
+      <% if (!item) { %>
+      <div class="col-6">
+        <label class="form-label">الكمية الافتتاحية</label>
+        <input type="number" name="qty" class="form-control" min="0" step="0.01" value="0" placeholder="0">
+        <div class="hint">يُسجَّل تلقائياً كحركة استلام</div>
+      </div>
+      <% } %>
+      <div class="col-6">
+        <label class="form-label">حد المخزون الأدنى</label>
+        <input type="number" name="low_stock_threshold" class="form-control" min="0" step="0.01"
+          value="<%= item ? item.low_stock_threshold||10 : 10 %>" placeholder="10">
+        <div class="hint">تنبيه عند الوصول لهذه الكمية</div>
+      </div>
+      <div class="col-6">
+        <label class="form-label">تكلفة الوحدة (ر.س)</label>
+        <input type="number" name="cost_per_unit" class="form-control" min="0" step="0.01"
+          value="<%= item ? item.cost_per_unit||0 : 0 %>" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="form-section">ملاحظات</div>
+    <div class="row g-3">
+      <div class="col-12">
+        <textarea name="notes" class="form-control" rows="2"
+          placeholder="أي ملاحظات إضافية على هذا الصنف…"><%= item ? item.notes||'' : '' %></textarea>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4 flex-wrap">
+      <button type="submit" class="btn btn-brand flex-grow-1">
+        <%= item ? '💾 حفظ التعديلات' : '✅ إضافة الصنف' %>
+      </button>
+      <a href="<%= item ? '/inventory/items/'+item.id : '/inventory/items' %>" class="btn btn-outline-secondary">إلغاء</a>
+      <% if (item && user.role === 'admin') { %>
+      <form method="POST" action="/inventory/items/<%= item.id %>/delete" style="margin:0"
+        onsubmit="return confirm('هل أنت متأكد من حذف هذا الصنف نهائياً؟')">
+        <button type="submit" class="btn btn-danger">🗑 حذف</button>
+      </form>
+      <% } %>
+    </div>
+  </form>
+</div>
+
+<%- include('../partials/foot') %>

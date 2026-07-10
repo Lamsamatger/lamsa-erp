@@ -1,0 +1,152 @@
+<%- include('../partials/head', {title: 'أصناف المخزون'}) %>
+<style>
+:root{--navy:#1a2d4a;--gold:#c9a24b;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6}
+.filter-bar{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filter-bar input,.filter-bar select{font-size:.83rem;border-radius:9px;border:1.5px solid #e5e7eb;padding:7px 11px;background:#fafafa;font-family:'Tajawal',sans-serif}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--gold);outline:none;background:#fff}
+
+/* Desktop table */
+.inv-table{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden}
+.inv-table table{margin-bottom:0;font-size:.83rem}
+.inv-table thead th{background:#f8fafc;font-weight:700;color:#555;padding:11px 14px;white-space:nowrap;border-bottom:2px solid #eef0f4}
+.inv-table tbody tr:hover{background:#fffbf0}
+.inv-table tbody td{padding:12px 14px;vertical-align:middle}
+
+/* Mobile cards */
+.inv-card{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.07);padding:14px 16px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px;border-right:4px solid var(--navy)}
+.inv-card.low{border-right-color:var(--orange)}.inv-card.out{border-right-color:var(--red)}
+.inv-card-hd{display:flex;align-items:flex-start;gap:10px}
+.inv-card-name{font-weight:800;font-size:.95rem;color:var(--navy);flex:1}
+.inv-card-sku{font-family:monospace;font-size:.72rem;color:#aaa}
+.inv-card-meta{display:flex;gap:10px;font-size:.75rem;color:#666;flex-wrap:wrap}
+.inv-card-qty{font-size:1.3rem;font-weight:900;white-space:nowrap;color:var(--navy)}
+.inv-card-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Status pills */
+.stk-pill{display:inline-block;padding:3px 11px;border-radius:20px;font-size:.72rem;font-weight:700}
+.stk-ok{background:#dcfce7;color:#166534}.stk-low{background:#fef3c7;color:#92400e}.stk-out{background:#fee2e2;color:#991b1b}
+
+/* Category badge */
+.cat-badge{display:inline-block;padding:2px 9px;border-radius:8px;font-size:.7rem;font-weight:600;background:#f1f5f9;color:#475569}
+
+.btn-act{padding:5px 12px;border-radius:9px;font-size:.75rem;font-weight:700;text-decoration:none;border:1.5px solid;transition:all .15s;white-space:nowrap}
+.btn-recv{border-color:var(--green);color:var(--green)}.btn-recv:hover{background:var(--green);color:#fff}
+.btn-view{border-color:var(--navy);color:var(--navy)}.btn-view:hover{background:var(--navy);color:#fff}
+
+.empty-state{text-align:center;padding:50px 20px;background:#fff;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);color:#aaa}
+.empty-icon{font-size:3rem;margin-bottom:10px}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">📦 أصناف المخزون</h1>
+  <div class="d-flex gap-2">
+    <a href="/inventory/items/new" class="btn btn-sm btn-brand">+ صنف جديد</a>
+    <a href="/inventory" class="btn btn-sm btn-outline-secondary">← لوحة المخزون</a>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="/inventory/items">
+<div class="filter-bar">
+  <input type="text" name="q" value="<%= filters.q||'' %>" placeholder="🔎 بحث باسم أو رمز SKU…" style="flex:1;min-width:160px">
+  <select name="category">
+    <option value="">كل الفئات</option>
+    <% ITEM_CATEGORIES.forEach(function(c){ %><option value="<%= c %>" <%= filters.category===c?'selected':'' %>><%= c %></option><% }) %>
+  </select>
+  <select name="status">
+    <option value="">كل الحالات</option>
+    <option value="ok"  <%= filters.status==='ok'?'selected':'' %>>✅ متوفر</option>
+    <option value="low" <%= filters.status==='low'?'selected':'' %>>⚠️ منخفض</option>
+    <option value="out" <%= filters.status==='out'?'selected':'' %>>❌ نافد</option>
+  </select>
+  <button type="submit" class="btn btn-sm btn-brand">تصفية</button>
+  <% if (filters.q||filters.category||filters.status) { %><a href="/inventory/items" class="btn btn-sm btn-outline-secondary">مسح</a><% } %>
+</div>
+</form>
+
+<div style="font-size:.8rem;color:#888;margin-bottom:10px"><%= items.length %> صنف</div>
+
+<% if (!items.length) { %>
+<div class="empty-state">
+  <div class="empty-icon">🔍</div>
+  لا توجد أصناف تطابق الفلتر<br>
+  <a href="/inventory/items/new" class="btn btn-sm btn-brand mt-3">+ أضف صنفاً جديداً</a>
+</div>
+<% } %>
+
+<!-- Desktop table -->
+<% if (items.length) { %>
+<div class="inv-table d-none d-md-block">
+  <table class="table table-hover">
+    <thead><tr>
+      <th>الصنف</th><th>SKU</th><th>الفئة</th><th>اللون</th>
+      <th>الكمية المتاحة</th><th>الحد الأدنى</th><th>تكلفة الوحدة</th><th></th>
+    </tr></thead>
+    <tbody>
+    <% items.forEach(function(it){
+      var stk = it.qty<=0?'out':(it.qty<=(it.low_stock_threshold||0)?'low':'ok');
+      var stkLabel = stk==='ok'?'✅ متوفر':stk==='low'?'⚠️ منخفض':'❌ نافد';
+    %>
+      <tr>
+        <td>
+          <a href="/inventory/items/<%= it.id %>" style="font-weight:800;color:var(--navy);text-decoration:none"><%= it.name %></a>
+          <% if (it.notes) { %><div style="font-size:.7rem;color:#aaa;margin-top:2px"><%= it.notes.substring(0,40) %></div><% } %>
+        </td>
+        <td><span style="font-family:monospace;font-size:.78rem;color:#666"><%= it.sku||'—' %></span></td>
+        <td><span class="cat-badge"><%= it.category %></span></td>
+        <td style="font-size:.82rem;color:#666"><%= it.color||'—' %></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:6px">
+            <strong style="font-size:1rem;color:var(--navy)"><%= it.qty %></strong>
+            <span style="font-size:.75rem;color:#888"><%= it.unit %></span>
+            <span class="stk-pill stk-<%= stk %>"><%= stkLabel %></span>
+          </div>
+        </td>
+        <td style="font-size:.8rem;color:#888"><%= it.low_stock_threshold||0 %> <%= it.unit %></td>
+        <td style="font-size:.82rem;color:#555"><%= it.cost_per_unit?(it.cost_per_unit.toFixed(2)+' ر.س'):'—' %></td>
+        <td>
+          <div class="d-flex gap-1">
+            <a href="/inventory/items/<%= it.id %>?tab=receive" class="btn-act btn-recv">📥 استلام</a>
+            <a href="/inventory/items/<%= it.id %>?tab=issue"   class="btn-act btn-view">📤 صرف</a>
+            <a href="/inventory/items/<%= it.id %>"              class="btn-act btn-view">عرض</a>
+          </div>
+        </td>
+      </tr>
+    <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<!-- Mobile cards -->
+<div class="d-md-none">
+<% items.forEach(function(it){
+  var stk = it.qty<=0?'out':(it.qty<=(it.low_stock_threshold||0)?'low':'ok');
+  var stkLabel = stk==='ok'?'✅ متوفر':stk==='low'?'⚠️ منخفض':'❌ نافد';
+%>
+  <div class="inv-card <%= stk==='ok'?'':stk %>">
+    <div class="inv-card-hd">
+      <div style="flex:1">
+        <div class="inv-card-name"><%= it.name %></div>
+        <div class="inv-card-sku"><%= it.sku||'' %> <span class="cat-badge"><%= it.category %></span></div>
+      </div>
+      <div class="text-end">
+        <div class="inv-card-qty"><%= it.qty %> <small style="font-size:.6rem;color:#888"><%= it.unit %></small></div>
+        <span class="stk-pill stk-<%= stk %>"><%= stkLabel %></span>
+      </div>
+    </div>
+    <div class="inv-card-meta">
+      <% if (it.color) { %><span>🎨 <%= it.color %></span><% } %>
+      <span>حد أدنى: <%= it.low_stock_threshold||0 %> <%= it.unit %></span>
+      <% if (it.cost_per_unit) { %><span>💰 <%= it.cost_per_unit.toFixed(2) %> ر.س/<%= it.unit %></span><% } %>
+    </div>
+    <div class="inv-card-actions">
+      <a href="/inventory/items/<%= it.id %>?tab=receive" class="btn-act btn-recv">📥 استلام</a>
+      <a href="/inventory/items/<%= it.id %>?tab=issue"   class="btn-act btn-view">📤 صرف</a>
+      <a href="/inventory/items/<%= it.id %>"              class="btn-act btn-view">📋 تفاصيل</a>
+    </div>
+  </div>
+<% }) %>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>

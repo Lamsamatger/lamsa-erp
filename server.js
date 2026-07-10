@@ -1225,6 +1225,368 @@ app.get('/packaging/scan/item/:barcode', requireAuth, requireSection('packaging'
 });
 
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// INVENTORY MANAGEMENT MODULE
+// ═══════════════════════════════════════════════════════
+
+const ITEM_CATEGORIES  = ['قماش', 'إكسسوار', 'منتج جاهز', 'أخرى'];
+const INVENTORY_UNITS  = ['متر', 'قطعة', 'كيلو', 'رول', 'كرتون', 'دزينة', 'لتر', 'طقم'];
+const MOVEMENT_TYPES   = ['استلام', 'صرف', 'إرجاع', 'تسوية', 'جرد'];
+
+function initInv(db) {
+  db.inventory_items     = db.inventory_items     || [];
+  db.inventory_movements = db.inventory_movements || [];
+}
+
+// ── Dashboard ──────────────────────────────────────────
+app.get('/inventory', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load();
+  initInv(db);
+
+  const outOfStockItems = db.inventory_items.filter(i => i.qty <= 0);
+  const lowStockItems   = db.inventory_items.filter(i => i.qty > 0 && i.qty <= (i.low_stock_threshold || 0));
+
+  const catStats = {};
+  ITEM_CATEGORIES.forEach(c => { catStats[c] = { count: 0, totalQty: 0, lowCount: 0 }; });
+  db.inventory_items.forEach(i => {
+    const c = i.category || 'أخرى';
+    if (!catStats[c]) catStats[c] = { count: 0, totalQty: 0, lowCount: 0 };
+    catStats[c].count++;
+    catStats[c].totalQty += i.qty || 0;
+    if (i.qty <= 0 || i.qty <= (i.low_stock_threshold || 0)) catStats[c].lowCount++;
+  });
+
+  const userMap = {}; db.users.forEach(u => { userMap[u.id] = u; });
+  const itemMap = {}; db.inventory_items.forEach(i => { itemMap[i.id] = i; });
+  const recentMovements = db.inventory_movements.slice(0, 15).map(m => ({
+    ...m,
+    user_name: userMap[m.performed_by] ? userMap[m.performed_by].name : 'غير معروف',
+    item: itemMap[m.item_id] || { name: m.item_name, unit: '' }
+  }));
+
+  res.render('inventory/dashboard', {
+    title: 'المخزون',
+    kpi: {
+      totalSkus:   db.inventory_items.length,
+      outOfStock:  outOfStockItems.length,
+      lowStock:    lowStockItems.length,
+      totalValue:  db.inventory_items.reduce((s, i) => s + (i.qty || 0) * (i.cost_per_unit || 0), 0)
+    },
+    catStats,
+    outOfStockItems: outOfStockItems.slice(0, 5),
+    lowStockItems:   lowStockItems.slice(0, 8),
+    recentMovements,
+    ITEM_CATEGORIES,
+    allItems: db.inventory_items
+  });
+});
+
+// ── Items list ─────────────────────────────────────────
+app.get('/inventory/items', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load();
+  initInv(db);
+  let items = [...db.inventory_items];
+  const { category, status, q } = req.query;
+  if (category) items = items.filter(i => i.category === category);
+  if (status === 'low') items = items.filter(i => i.qty > 0 && i.qty <= (i.low_stock_threshold || 0));
+  if (status === 'out') items = items.filter(i => i.qty <= 0);
+  if (status === 'ok')  items = items.filter(i => i.qty > (i.low_stock_threshold || 0));
+  if (q) {
+    const ql = q.toLowerCase();
+    items = items.filter(i =>
+      (i.name || '').toLowerCase().includes(ql) ||
+      (i.sku  || '').toLowerCase().includes(ql) ||
+      (i.color|| '').toLowerCase().includes(ql)
+    );
+  }
+  res.render('inventory/items', { title: 'أصناف المخزون', items, filters: req.query, ITEM_CATEGORIES, INVENTORY_UNITS });
+});
+
+// ── New item form ───────────────────────────────────────
+app.get('/inventory/items/new', requireAuth, requireSection('inventory'), (req, res) => {
+  res.render('inventory/item_form', { title: 'صنف جديد', item: null, ITEM_CATEGORIES, INVENTORY_UNITS });
+});
+
+// ── Create item ─────────────────────────────────────────
+app.post('/inventory/items/new', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load();
+  initInv(db);
+  const { name, sku, category, unit, color, qty, low_stock_threshold, cost_per_unit, supplier, notes } = req.body;
+  if (!name || !category || !unit)
+    return res.status(400).render('error', { message: 'الاسم والفئة والوحدة مطلوبة' });
+  if (!ITEM_CATEGORIES.includes(category))
+    return res.status(400).render('error', { message: 'فئة غير معروفة' });
+  if (!INVENTORY_UNITS.includes(unit))
+    return res.status(400).render('error', { message: 'وحدة قياس غير معروفة' });
+
+  const initialQty = Math.max(0, parseFloat(qty || '0') || 0);
+  const item = {
+    id: newId('inv'), name: name.trim(), sku: (sku || '').trim().substring(0, 30),
+    category, unit, color: (color || '').trim(),
+    qty: initialQty,
+    low_stock_threshold: Math.max(0, parseFloat(low_stock_threshold || '10') || 10),
+    cost_per_unit: Math.max(0, parseFloat(cost_per_unit || '0') || 0),
+    supplier: (supplier || '').trim(), notes: (notes || '').trim().substring(0, 300),
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()
+  };
+  db.inventory_items.push(item);
+
+  if (initialQty > 0) {
+    db.inventory_movements.unshift({
+      id: newId('mov'), item_id: item.id, item_name: item.name,
+      type: 'استلام', qty: initialQty, qty_before: 0, qty_after: initialQty,
+      reference: 'رصيد افتتاحي', order_id: null, order_number: null,
+      notes: 'رصيد افتتاحي', performed_by: req.session.user.id,
+      at: new Date().toISOString()
+    });
+  }
+  log(db, req.session.user.id, 'إضافة صنف مخزون', item.name + (item.sku ? ' (' + item.sku + ')' : ''));
+  save(db);
+  res.redirect('/inventory/items/' + item.id);
+});
+
+// ── Item detail ─────────────────────────────────────────
+app.get('/inventory/items/:id', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load();
+  initInv(db);
+  const item = db.inventory_items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+
+  const userMap = {}; db.users.forEach(u => { userMap[u.id] = u; });
+  const movements = db.inventory_movements
+    .filter(m => m.item_id === item.id).slice(0, 50)
+    .map(m => ({ ...m, user_name: userMap[m.performed_by] ? userMap[m.performed_by].name : 'غير معروف' }));
+  const activeOrders = db.orders
+    .filter(o => !['تم التنفيذ','ملغي'].includes(o.status))
+    .map(o => ({ id: o.id, order_number: o.order_number, status: o.status }));
+
+  res.render('inventory/item', {
+    title: item.name, tab: req.query.tab || 'log',
+    item, movements, activeOrders, ITEM_CATEGORIES, INVENTORY_UNITS,
+    error: req.query.error || null, success: req.query.success || null
+  });
+});
+
+// ── Receive stock ───────────────────────────────────────
+app.post('/inventory/items/:id/receive', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const item = db.inventory_items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+  const qty = parseFloat(req.body.qty || '0');
+  if (!qty || qty <= 0)
+    return res.redirect('/inventory/items/' + item.id + '?tab=receive&error=' + encodeURIComponent('الكمية يجب أن تكون أكبر من صفر'));
+  const before = item.qty;
+  item.qty = Math.round((item.qty + qty) * 1000) / 1000;
+  item.updated_at = new Date().toISOString();
+  db.inventory_movements.unshift({
+    id: newId('mov'), item_id: item.id, item_name: item.name,
+    type: 'استلام', qty, qty_before: before, qty_after: item.qty,
+    reference: (req.body.reference || '').trim().substring(0, 50),
+    order_id: null, order_number: null,
+    notes: (req.body.notes || '').trim().substring(0, 200),
+    performed_by: req.session.user.id, at: new Date().toISOString()
+  });
+  log(db, req.session.user.id, 'استلام مواد', `${item.name}: +${qty} ${item.unit}`);
+  save(db);
+  res.redirect('/inventory/items/' + item.id + '?tab=log&success=' + encodeURIComponent('تم تسجيل الاستلام'));
+});
+
+// ── Issue to production ─────────────────────────────────
+app.post('/inventory/items/:id/issue', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const item = db.inventory_items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+  const qty = parseFloat(req.body.qty || '0');
+  if (!qty || qty <= 0)
+    return res.redirect('/inventory/items/' + item.id + '?tab=issue&error=' + encodeURIComponent('كمية غير صالحة'));
+  if (qty > item.qty)
+    return res.redirect('/inventory/items/' + item.id + '?tab=issue&error=' + encodeURIComponent('الكمية المطلوبة أكبر من المتوفر (' + item.qty + ' ' + item.unit + ')'));
+  const order = db.orders.find(o => o.id === req.body.order_id);
+  const before = item.qty;
+  item.qty = Math.round((item.qty - qty) * 1000) / 1000;
+  item.updated_at = new Date().toISOString();
+  db.inventory_movements.unshift({
+    id: newId('mov'), item_id: item.id, item_name: item.name,
+    type: 'صرف', qty: -qty, qty_before: before, qty_after: item.qty,
+    reference: '', order_id: order ? order.id : null, order_number: order ? order.order_number : null,
+    notes: (req.body.notes || '').trim().substring(0, 200),
+    performed_by: req.session.user.id, at: new Date().toISOString()
+  });
+  log(db, req.session.user.id, 'صرف مواد للإنتاج',
+    `${item.name}: -${qty} ${item.unit}${order ? ' → ' + order.order_number : ''}`);
+  save(db);
+  res.redirect('/inventory/items/' + item.id + '?tab=log&success=' + encodeURIComponent('تم تسجيل الصرف'));
+});
+
+// ── Return unused material ──────────────────────────────
+app.post('/inventory/items/:id/return', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const item = db.inventory_items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+  const qty = parseFloat(req.body.qty || '0');
+  if (!qty || qty <= 0)
+    return res.redirect('/inventory/items/' + item.id + '?tab=return&error=' + encodeURIComponent('كمية غير صالحة'));
+  const order = db.orders.find(o => o.id === req.body.order_id);
+  const before = item.qty;
+  item.qty = Math.round((item.qty + qty) * 1000) / 1000;
+  item.updated_at = new Date().toISOString();
+  db.inventory_movements.unshift({
+    id: newId('mov'), item_id: item.id, item_name: item.name,
+    type: 'إرجاع', qty, qty_before: before, qty_after: item.qty,
+    reference: '', order_id: order ? order.id : null, order_number: order ? order.order_number : null,
+    notes: (req.body.notes || '').trim().substring(0, 200),
+    performed_by: req.session.user.id, at: new Date().toISOString()
+  });
+  log(db, req.session.user.id, 'إرجاع مواد',
+    `${item.name}: +${qty} ${item.unit}${order ? ' ← ' + order.order_number : ''}`);
+  save(db);
+  res.redirect('/inventory/items/' + item.id + '?tab=log&success=' + encodeURIComponent('تم تسجيل الإرجاع'));
+});
+
+// ── Adjust / count ──────────────────────────────────────
+app.post('/inventory/items/:id/adjust', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const item = db.inventory_items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+
+  const isAbsolute = req.body.adjust_type === 'absolute';
+  const movType    = ['تسوية','جرد'].includes(req.body.mov_type) ? req.body.mov_type : 'تسوية';
+  let newQty, delta;
+
+  if (isAbsolute) {
+    newQty = parseFloat(req.body.qty || '0');
+    if (isNaN(newQty) || newQty < 0)
+      return res.redirect('/inventory/items/' + item.id + '?tab=adjust&error=' + encodeURIComponent('كمية غير صالحة'));
+    delta = newQty - item.qty;
+  } else {
+    delta  = parseFloat(req.body.qty || '0');
+    if (isNaN(delta))
+      return res.redirect('/inventory/items/' + item.id + '?tab=adjust&error=' + encodeURIComponent('كمية غير صالحة'));
+    newQty = item.qty + delta;
+    if (newQty < 0)
+      return res.redirect('/inventory/items/' + item.id + '?tab=adjust&error=' + encodeURIComponent('الكمية الناتجة لا يمكن أن تكون سالبة'));
+  }
+
+  const before   = item.qty;
+  item.qty       = Math.round(newQty * 1000) / 1000;
+  item.updated_at = new Date().toISOString();
+  db.inventory_movements.unshift({
+    id: newId('mov'), item_id: item.id, item_name: item.name,
+    type: movType, qty: Math.round(delta * 1000) / 1000,
+    qty_before: before, qty_after: item.qty,
+    reference: (req.body.reference || '').trim().substring(0, 50),
+    order_id: null, order_number: null,
+    notes: (req.body.notes || '').trim().substring(0, 200),
+    performed_by: req.session.user.id, at: new Date().toISOString()
+  });
+  log(db, req.session.user.id, movType + ' مخزون', `${item.name}: ${before} → ${item.qty} ${item.unit}`);
+  save(db);
+  res.redirect('/inventory/items/' + item.id + '?tab=log&success=' + encodeURIComponent('تم حفظ التسوية'));
+});
+
+// ── Edit item details ───────────────────────────────────
+app.post('/inventory/items/:id/edit', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const item = db.inventory_items.find(i => i.id === req.params.id);
+  if (!item) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+  const { name, sku, category, unit, color, low_stock_threshold, cost_per_unit, supplier, notes } = req.body;
+  if (!name || !category || !unit)
+    return res.status(400).render('error', { message: 'الاسم والفئة والوحدة مطلوبة' });
+  if (!ITEM_CATEGORIES.includes(category))
+    return res.status(400).render('error', { message: 'فئة غير معروفة' });
+  if (!INVENTORY_UNITS.includes(unit))
+    return res.status(400).render('error', { message: 'وحدة قياس غير معروفة' });
+  item.name = name.trim(); item.sku = (sku || '').trim().substring(0, 30);
+  item.category = category; item.unit = unit;
+  item.color = (color || '').trim();
+  item.low_stock_threshold = Math.max(0, parseFloat(low_stock_threshold || '10') || 10);
+  item.cost_per_unit = Math.max(0, parseFloat(cost_per_unit || '0') || 0);
+  item.supplier = (supplier || '').trim(); item.notes = (notes || '').trim().substring(0, 300);
+  item.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'تعديل صنف مخزون', item.name);
+  save(db);
+  res.redirect('/inventory/items/' + item.id + '?tab=log&success=' + encodeURIComponent('تم حفظ البيانات'));
+});
+
+// ── Delete item (admin only) ────────────────────────────
+app.post('/inventory/items/:id/delete', requireAuth, requireSection('inventory'), (req, res) => {
+  if (req.session.user.role !== 'admin')
+    return res.status(403).render('error', { message: 'الحذف للمدير فقط' });
+  const db = load(); initInv(db);
+  const idx = db.inventory_items.findIndex(i => i.id === req.params.id);
+  if (idx === -1) return res.status(404).render('error', { message: 'الصنف غير موجود' });
+  const name = db.inventory_items[idx].name;
+  db.inventory_items.splice(idx, 1);
+  log(db, req.session.user.id, 'حذف صنف مخزون', name);
+  save(db);
+  res.redirect('/inventory/items');
+});
+
+// ── Movements log ───────────────────────────────────────
+app.get('/inventory/movements', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const userMap = {}; db.users.forEach(u => { userMap[u.id] = u; });
+  const itemMap = {}; db.inventory_items.forEach(i => { itemMap[i.id] = i; });
+  const { type, category, q, date_from, date_to } = req.query;
+
+  let movements = db.inventory_movements.map(m => ({
+    ...m,
+    user_name:     userMap[m.performed_by] ? userMap[m.performed_by].name : 'غير معروف',
+    item_category: itemMap[m.item_id] ? itemMap[m.item_id].category : '',
+    item_unit:     itemMap[m.item_id] ? itemMap[m.item_id].unit     : ''
+  }));
+
+  if (type)      movements = movements.filter(m => m.type === type);
+  if (category)  movements = movements.filter(m => m.item_category === category);
+  if (q) { const ql = q.toLowerCase();
+    movements = movements.filter(m =>
+      (m.item_name||'').toLowerCase().includes(ql) ||
+      (m.order_number||'').toLowerCase().includes(ql) ||
+      (m.user_name||'').toLowerCase().includes(ql)); }
+  if (date_from) movements = movements.filter(m => m.at >= date_from);
+  if (date_to)   movements = movements.filter(m => m.at <= date_to + 'T23:59:59');
+
+  res.render('inventory/movements', {
+    title: 'حركات المخزون', movements: movements.slice(0, 200),
+    filters: req.query, MOVEMENT_TYPES, ITEM_CATEGORIES
+  });
+});
+
+// ── Reports ─────────────────────────────────────────────
+app.get('/inventory/reports', requireAuth, requireSection('inventory'), (req, res) => {
+  const db = load(); initInv(db);
+  const userMap = {}; db.users.forEach(u => { userMap[u.id] = u; });
+
+  const stockByCat = {};
+  ITEM_CATEGORIES.forEach(c => { stockByCat[c] = { items: [], totalQty: 0, totalValue: 0 }; });
+  db.inventory_items.forEach(i => {
+    const c = i.category || 'أخرى';
+    if (!stockByCat[c]) stockByCat[c] = { items: [], totalQty: 0, totalValue: 0 };
+    stockByCat[c].items.push(i);
+    stockByCat[c].totalQty   += i.qty || 0;
+    stockByCat[c].totalValue += (i.qty || 0) * (i.cost_per_unit || 0);
+  });
+
+  const usageByOrder = {};
+  db.inventory_movements.filter(m => m.type === 'صرف' && m.order_number).forEach(m => {
+    const k = m.order_number;
+    if (!usageByOrder[k]) usageByOrder[k] = { order_number: k, order_id: m.order_id, items: [] };
+    usageByOrder[k].items.push({ ...m, user_name: userMap[m.performed_by] ? userMap[m.performed_by].name : '—' });
+  });
+
+  res.render('inventory/reports', {
+    title: 'تقارير المخزون', tab: req.query.tab || 'stock',
+    stockByCat, usageByOrder: Object.values(usageByOrder),
+    totalValue: db.inventory_items.reduce((s, i) => s + (i.qty||0)*(i.cost_per_unit||0), 0),
+    totalItems: db.inventory_items.length,
+    ITEM_CATEGORIES,
+    recentMovements: db.inventory_movements.slice(0, 100).map(m => ({
+      ...m, user_name: userMap[m.performed_by] ? userMap[m.performed_by].name : 'غير معروف'
+    }))
+  });
+});
+
+// ═══════════════════════════════════════════════════════
 // ---------- BARCODE SCANNING ----------
 app.get('/barcode', requireAuth, requireSection('barcode'), (req, res) => {
   res.render('barcode/scan', { result: null, error: null });

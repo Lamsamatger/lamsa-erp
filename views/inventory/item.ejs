@@ -1,0 +1,432 @@
+<%- include('../partials/head', {title: 'مخزون — ' + item.name}) %>
+<style>
+:root{--navy:#1a2d4a;--gold:#c9a24b;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6;--purple:#7c3aed}
+
+/* Header */
+.item-hdr{background:var(--navy);color:#fff;border-radius:16px;padding:18px;margin-bottom:16px}
+.item-hdr-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.item-back{background:rgba(255,255,255,.12);border:none;border-radius:9px;width:36px;height:36px;color:#fff;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:1rem;flex-shrink:0}
+.item-back:hover{background:rgba(255,255,255,.22);color:#fff}
+.item-title{font-size:1.1rem;font-weight:900;flex:1}
+.item-sku{font-family:monospace;font-size:.75rem;opacity:.65}
+.item-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.is{text-align:center;padding:10px;border-left:1px solid rgba(255,255,255,.15)}
+.is:last-child{border-left:none}
+.is-n{font-size:1.5rem;font-weight:900;line-height:1}
+.is-l{font-size:.65rem;opacity:.7;margin-top:2px}
+.stk-pill{display:inline-block;padding:3px 12px;border-radius:20px;font-size:.75rem;font-weight:700}
+.stk-ok{background:rgba(16,185,129,.25);color:#6ee7b7}
+.stk-low{background:rgba(245,158,11,.25);color:#fcd34d}
+.stk-out{background:rgba(239,68,68,.25);color:#fca5a5}
+
+/* Tabs */
+.inv-tabs{display:flex;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:16px}
+.inv-tab{flex:1;padding:12px 6px;text-align:center;text-decoration:none;color:#666;font-size:.75rem;font-weight:700;border-bottom:3px solid transparent;transition:all .15s;white-space:nowrap}
+.inv-tab:hover{color:var(--navy);background:#f8fafc}
+.inv-tab.active{color:var(--navy);border-bottom-color:var(--gold);background:#fffbf0}
+.inv-tab .ti{font-size:1rem;display:block;margin-bottom:2px}
+
+/* Cards */
+.sec-card{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:14px;overflow:hidden}
+.sec-hd{padding:12px 16px;background:#f8fafc;border-bottom:1px solid #eef0f4;font-weight:800;font-size:.88rem;color:var(--navy);display:flex;align-items:center;gap:7px}
+.sec-bd{padding:16px}
+
+/* Form fields */
+.form-label{font-weight:700;font-size:.82rem;color:#444;margin-bottom:5px}
+.form-control,.form-select{border-radius:10px;border:1.5px solid #e5e7eb;font-family:'Tajawal',sans-serif;font-size:.88rem;padding:10px 13px}
+.form-control:focus,.form-select:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,162,75,.12);outline:none}
+
+/* Alert inline */
+.inline-alert{border-radius:10px;padding:10px 13px;font-size:.82rem;margin-bottom:12px}
+.inline-alert.err{background:#fef2f2;border:1.5px solid #fca5a5;color:#991b1b}
+.inline-alert.ok{background:#f0fdf4;border:1.5px solid #86efac;color:#166534}
+
+/* Movement log */
+.mov-row{padding:11px 16px;border-bottom:1px solid #f5f5f5;display:flex;gap:10px;align-items:flex-start}
+.mov-row:last-child{border-bottom:none}
+.mov-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;margin-top:1px}
+.dot-recv{background:#dcfce7;color:#166534}.dot-issue{background:#fee2e2;color:#991b1b}
+.dot-ret{background:#dbeafe;color:#1e40af}.dot-adj{background:#f3e8ff;color:#6b21a8}.dot-cnt{background:#fef9c3;color:#854d0e}
+.mov-body{flex:1;min-width:0}
+.mov-type-lbl{font-weight:700;font-size:.82rem;color:var(--navy)}
+.mov-detail{font-size:.75rem;color:#666;margin-top:1px}
+.mov-meta{font-size:.68rem;color:#aaa;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.qty-pos{color:var(--green);font-weight:900;font-size:1rem}
+.qty-neg{color:var(--red);font-weight:900;font-size:1rem}
+
+/* Order badge pill */
+.ord-pill{font-family:monospace;font-size:.72rem;font-weight:700;color:var(--navy);background:#f0f4ff;padding:2px 8px;border-radius:6px;text-decoration:none}
+.ord-pill:hover{background:var(--navy);color:#fff}
+
+@media(max-width:576px){
+  .item-stats{grid-template-columns:1fr 1fr}
+  .is:nth-child(2){border-left:none}
+  .inv-tab{font-size:.68rem;padding:10px 4px}
+  .inv-tab .ti{font-size:.9rem}
+}
+</style>
+<%
+var stk = item.qty<=0?'out':(item.qty<=(item.low_stock_threshold||0)?'low':'ok');
+var stkLabel = stk==='ok'?'✅ متوفر':stk==='low'?'⚠️ مخزون منخفض':'❌ نفد المخزون';
+var activeTab = tab||'log';
+%>
+
+<!-- Item header -->
+<div class="item-hdr">
+  <div class="item-hdr-top">
+    <a href="/inventory/items" class="item-back">←</a>
+    <div style="flex:1">
+      <div class="item-title"><%= item.name %></div>
+      <div class="item-sku">
+        <%= item.sku||'' %>
+        <% if(item.sku&&item.category){%> · <% } %><%= item.category %>
+        <% if(item.color){ %> · <%= item.color %><% } %>
+      </div>
+    </div>
+    <span class="stk-pill stk-<%= stk %>"><%= stkLabel %></span>
+  </div>
+  <div class="item-stats">
+    <div class="is">
+      <div class="is-n"><%= item.qty %></div>
+      <div class="is-l"><%= item.unit %> متاح</div>
+    </div>
+    <div class="is">
+      <div class="is-n"><%= item.low_stock_threshold||0 %></div>
+      <div class="is-l">حد التنبيه</div>
+    </div>
+    <div class="is">
+      <div class="is-n"><%= movements.length %></div>
+      <div class="is-l">حركة مسجّلة</div>
+    </div>
+  </div>
+</div>
+
+<!-- Alerts -->
+<% if (error) { %><div class="inline-alert err">⚠️ <%= error %></div><% } %>
+<% if (success) { %><div class="inline-alert ok">✅ <%= success %></div><% } %>
+
+<!-- Tabs -->
+<div class="inv-tabs">
+  <a href="?tab=log"     class="inv-tab <%= activeTab==='log'?'active':'' %>"><span class="ti">📜</span>السجل</a>
+  <a href="?tab=receive" class="inv-tab <%= activeTab==='receive'?'active':'' %>"><span class="ti">📥</span>استلام</a>
+  <a href="?tab=issue"   class="inv-tab <%= activeTab==='issue'?'active':'' %>"><span class="ti">📤</span>صرف</a>
+  <a href="?tab=return"  class="inv-tab <%= activeTab==='return'?'active':'' %>"><span class="ti">↩️</span>إرجاع</a>
+  <a href="?tab=adjust"  class="inv-tab <%= activeTab==='adjust'?'active':'' %>"><span class="ti">⚖️</span>تسوية</a>
+  <a href="?tab=edit"    class="inv-tab <%= activeTab==='edit'?'active':'' %>"><span class="ti">✏️</span>تعديل</a>
+</div>
+
+
+<!-- ══ TAB: LOG ══ -->
+<% if (activeTab==='log') { %>
+<div class="sec-card">
+  <div class="sec-hd">📜 سجل الحركات (<%= movements.length %>)</div>
+  <% if (!movements.length) { %>
+  <div style="text-align:center;padding:32px;color:#aaa;font-size:.88rem">
+    <div style="font-size:2rem;margin-bottom:8px">📭</div>لا توجد حركات مسجّلة بعد
+  </div>
+  <% } else { %>
+  <% movements.forEach(function(m){
+    var dotClass = m.type==='استلام'?'dot-recv':m.type==='صرف'?'dot-issue':m.type==='إرجاع'?'dot-ret':m.type==='تسوية'?'dot-adj':'dot-cnt';
+    var icon = m.type==='استلام'?'📥':m.type==='صرف'?'📤':m.type==='إرجاع'?'↩️':m.type==='تسوية'?'⚖️':'📋';
+    var qtySign = m.qty>0?'+':'';
+    var qtyClass = m.qty>=0?'qty-pos':'qty-neg';
+  %>
+  <div class="mov-row">
+    <div class="mov-dot <%= dotClass %>"><%= icon %></div>
+    <div class="mov-body">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div>
+          <span class="mov-type-lbl"><%= m.type %></span>
+          <% if (m.order_number) { %>
+            <a href="/orders/<%= m.order_id %>" class="ord-pill ms-2"><%= m.order_number %></a>
+          <% } %>
+          <% if (m.reference) { %>
+            <span style="font-size:.72rem;color:#888;margin-right:6px"><%= m.reference %></span>
+          <% } %>
+        </div>
+        <div>
+          <span class="<%= qtyClass %>"><%= qtySign %><%= Math.abs(m.qty) %></span>
+          <span style="font-size:.75rem;color:#888"> <%= item.unit %></span>
+        </div>
+      </div>
+      <div class="mov-detail">
+        <%= m.qty_before %> → <strong><%= m.qty_after %></strong> <%= item.unit %>
+        <% if (m.notes) { %> · <%= m.notes %><% } %>
+      </div>
+      <div class="mov-meta">
+        <span>👤 <%= m.user_name||'غير معروف' %></span>
+        <span>🕐 <%= new Date(m.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %>
+          &nbsp;<%= new Date(m.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) %></span>
+      </div>
+    </div>
+  </div>
+  <% }) %>
+  <% } %>
+</div>
+
+<!-- Item info summary -->
+<div class="sec-card">
+  <div class="sec-hd">📋 بيانات الصنف</div>
+  <div class="sec-bd">
+    <div class="row g-2" style="font-size:.83rem">
+      <div class="col-6"><span style="color:#888">الفئة:</span> <strong><%= item.category %></strong></div>
+      <div class="col-6"><span style="color:#888">الوحدة:</span> <strong><%= item.unit %></strong></div>
+      <% if (item.color) { %><div class="col-6"><span style="color:#888">اللون:</span> <strong><%= item.color %></strong></div><% } %>
+      <% if (item.sku) { %><div class="col-6"><span style="color:#888">SKU:</span> <strong style="font-family:monospace"><%= item.sku %></strong></div><% } %>
+      <% if (item.supplier) { %><div class="col-6"><span style="color:#888">المورّد:</span> <strong><%= item.supplier %></strong></div><% } %>
+      <% if (item.cost_per_unit) { %><div class="col-6"><span style="color:#888">تكلفة الوحدة:</span> <strong><%= item.cost_per_unit.toFixed(2) %> ر.س</strong></div><% } %>
+      <% if (item.notes) { %><div class="col-12"><span style="color:#888">ملاحظات:</span> <%= item.notes %></div><% } %>
+    </div>
+    <div class="mt-3 d-flex gap-2">
+      <a href="?tab=edit" class="btn btn-sm btn-outline-secondary">✏️ تعديل البيانات</a>
+      <a href="/inventory/movements?q=<%= encodeURIComponent(item.name) %>" class="btn btn-sm btn-outline-secondary">🔄 كل الحركات</a>
+    </div>
+  </div>
+</div>
+<% } %>
+
+
+<!-- ══ TAB: RECEIVE ══ -->
+<% if (activeTab==='receive') { %>
+<div class="sec-card">
+  <div class="sec-hd">📥 استلام مواد — <%= item.name %></div>
+  <div class="sec-bd">
+    <div style="background:#f0fdf4;border-radius:10px;padding:10px 13px;margin-bottom:16px;font-size:.82rem">
+      الكمية الحالية: <strong style="font-size:1.1rem;color:var(--navy)"><%= item.qty %></strong> <%= item.unit %>
+    </div>
+    <form method="POST" action="/inventory/items/<%= item.id %>/receive">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">الكمية المستلَمة <span style="color:#ef4444">*</span></label>
+          <input type="number" name="qty" class="form-control" min="0.01" step="0.01" required placeholder="0" autofocus>
+          <div style="font-size:.72rem;color:#aaa;margin-top:3px">بالـ<%= item.unit %></div>
+        </div>
+        <div class="col-6">
+          <label class="form-label">المرجع / رقم الفاتورة</label>
+          <input type="text" name="reference" class="form-control" placeholder="INV-1234" dir="ltr">
+        </div>
+        <div class="col-12">
+          <label class="form-label">ملاحظات</label>
+          <input type="text" name="notes" class="form-control" placeholder="مثال: مستلم من مورّد X">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-success w-100 mt-3 fw-bold" style="border-radius:12px;padding:12px;font-size:.95rem">
+        📥 تأكيد الاستلام
+      </button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+
+<!-- ══ TAB: ISSUE ══ -->
+<% if (activeTab==='issue') { %>
+<div class="sec-card">
+  <div class="sec-hd">📤 صرف للإنتاج — <%= item.name %></div>
+  <div class="sec-bd">
+    <div style="background:#<%= item.qty<=0?'fef2f2':item.qty<=(item.low_stock_threshold||0)?'fffbeb':'f0fdf4' %>;border-radius:10px;padding:10px 13px;margin-bottom:16px;font-size:.82rem">
+      الكمية المتاحة: <strong style="font-size:1.1rem;color:var(--navy)"><%= item.qty %></strong> <%= item.unit %>
+      <% if (item.qty<=0) { %> <span style="color:#ef4444;font-weight:700"> — المخزون نافد!</span><% } %>
+    </div>
+    <% if (item.qty <= 0) { %>
+    <div style="text-align:center;padding:24px;color:#aaa">
+      <div style="font-size:2rem;margin-bottom:8px">📭</div>
+      لا يمكن الصرف — المخزون نافد<br>
+      <a href="?tab=receive" class="btn btn-sm btn-success mt-2">📥 استلام مواد</a>
+    </div>
+    <% } else { %>
+    <form method="POST" action="/inventory/items/<%= item.id %>/issue">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">الكمية المصروفة <span style="color:#ef4444">*</span></label>
+          <input type="number" name="qty" class="form-control" min="0.01" step="0.01" max="<%= item.qty %>" required placeholder="0">
+          <div style="font-size:.72rem;color:#aaa;margin-top:3px">الحد الأقصى: <%= item.qty %> <%= item.unit %></div>
+        </div>
+        <div class="col-6">
+          <label class="form-label">ربط بطلب إنتاج</label>
+          <select name="order_id" class="form-select">
+            <option value="">— بدون طلب —</option>
+            <% activeOrders.forEach(function(o){ %>
+            <option value="<%= o.id %>"><%= o.order_number %> (<%= o.status %>)</option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">ملاحظات</label>
+          <input type="text" name="notes" class="form-control" placeholder="مثال: مقص للخياطة">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-danger w-100 mt-3 fw-bold" style="border-radius:12px;padding:12px;font-size:.95rem">
+        📤 تأكيد الصرف
+      </button>
+    </form>
+    <% } %>
+  </div>
+</div>
+<% } %>
+
+
+<!-- ══ TAB: RETURN ══ -->
+<% if (activeTab==='return') { %>
+<div class="sec-card">
+  <div class="sec-hd">↩️ إرجاع مواد — <%= item.name %></div>
+  <div class="sec-bd">
+    <div style="background:#f0fdf4;border-radius:10px;padding:10px 13px;margin-bottom:16px;font-size:.82rem">
+      الكمية الحالية: <strong style="font-size:1.1rem;color:var(--navy)"><%= item.qty %></strong> <%= item.unit %>
+    </div>
+    <form method="POST" action="/inventory/items/<%= item.id %>/return">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label">الكمية المُرجَعة <span style="color:#ef4444">*</span></label>
+          <input type="number" name="qty" class="form-control" min="0.01" step="0.01" required placeholder="0">
+          <div style="font-size:.72rem;color:#aaa;margin-top:3px">بالـ<%= item.unit %></div>
+        </div>
+        <div class="col-6">
+          <label class="form-label">الطلب المُرجَع منه</label>
+          <select name="order_id" class="form-select">
+            <option value="">— بدون طلب —</option>
+            <% activeOrders.forEach(function(o){ %>
+            <option value="<%= o.id %>"><%= o.order_number %> (<%= o.status %>)</option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">ملاحظات</label>
+          <input type="text" name="notes" class="form-control" placeholder="سبب الإرجاع…">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 mt-3 fw-bold" style="border-radius:12px;padding:12px;font-size:.95rem">
+        ↩️ تأكيد الإرجاع
+      </button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+
+<!-- ══ TAB: ADJUST ══ -->
+<% if (activeTab==='adjust') { %>
+<div class="sec-card">
+  <div class="sec-hd">⚖️ تسوية / جرد — <%= item.name %></div>
+  <div class="sec-bd">
+    <div style="background:#f8fafc;border-radius:10px;padding:10px 13px;margin-bottom:16px;font-size:.82rem">
+      الكمية الحالية: <strong style="font-size:1.1rem;color:var(--navy)"><%= item.qty %></strong> <%= item.unit %>
+    </div>
+    <!-- Toggle between جرد (absolute) and تسوية (delta) -->
+    <div class="d-flex gap-2 mb-4">
+      <button type="button" class="btn btn-sm flex-1 adj-toggle active" id="btn-count"
+        onclick="setMode('count')" style="border-radius:10px;font-weight:700;flex:1">📋 جرد (تعيين كمية)</button>
+      <button type="button" class="btn btn-sm flex-1 adj-toggle" id="btn-delta"
+        onclick="setMode('delta')" style="border-radius:10px;font-weight:700;flex:1">⚖️ تسوية (فرق)</button>
+    </div>
+    <form method="POST" action="/inventory/items/<%= item.id %>/adjust" id="adj-form">
+      <input type="hidden" name="adjust_type" id="adj-type" value="absolute">
+      <input type="hidden" name="mov_type" id="adj-mov-type" value="جرد">
+      <div class="row g-3">
+        <div class="col-6">
+          <label class="form-label" id="adj-qty-label">الكمية الفعلية (من الجرد)</label>
+          <input type="number" name="qty" class="form-control" min="0" step="0.01" required placeholder="0" id="adj-qty">
+          <div style="font-size:.72rem;color:#aaa;margin-top:3px" id="adj-qty-hint">أدخل الكمية الفعلية الموجودة في المخزن</div>
+        </div>
+        <div class="col-6">
+          <label class="form-label">المرجع</label>
+          <input type="text" name="reference" class="form-control" placeholder="رقم ورقة الجرد" dir="ltr">
+        </div>
+        <div class="col-12">
+          <label class="form-label">سبب التسوية / ملاحظات <span style="color:#ef4444">*</span></label>
+          <input type="text" name="notes" class="form-control" required placeholder="مثال: جرد دوري - شهر يوليو">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-warning w-100 mt-3 fw-bold" style="border-radius:12px;padding:12px;font-size:.95rem;color:var(--navy)">
+        ✅ تأكيد التسوية
+      </button>
+    </form>
+  </div>
+</div>
+<script>
+function setMode(m) {
+  var isCount = (m==='count');
+  document.getElementById('adj-type').value     = isCount?'absolute':'delta';
+  document.getElementById('adj-mov-type').value = isCount?'جرد':'تسوية';
+  document.getElementById('adj-qty-label').textContent = isCount?'الكمية الفعلية (من الجرد)':'الفرق (+/-)';
+  document.getElementById('adj-qty-hint').textContent  = isCount?'أدخل الكمية الفعلية الموجودة في المخزن':'قيمة موجبة للإضافة، سالبة للخصم';
+  document.getElementById('btn-count').classList.toggle('btn-brand', isCount);
+  document.getElementById('btn-count').classList.toggle('btn-outline-secondary', !isCount);
+  document.getElementById('btn-delta').classList.toggle('btn-brand', !isCount);
+  document.getElementById('btn-delta').classList.toggle('btn-outline-secondary', isCount);
+}
+setMode('count');
+</script>
+<% } %>
+
+
+<!-- ══ TAB: EDIT ══ -->
+<% if (activeTab==='edit') { %>
+<div class="sec-card">
+  <div class="sec-hd">✏️ تعديل بيانات الصنف</div>
+  <div class="sec-bd">
+    <form method="POST" action="/inventory/items/<%= item.id %>/edit">
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">اسم الصنف <span style="color:#ef4444">*</span></label>
+          <input type="text" name="name" class="form-control" required value="<%= item.name %>">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">رمز SKU</label>
+          <input type="text" name="sku" class="form-control" dir="ltr" value="<%= item.sku||'' %>">
+        </div>
+        <div class="col-6">
+          <label class="form-label">الفئة <span style="color:#ef4444">*</span></label>
+          <select name="category" class="form-select" required>
+            <% ITEM_CATEGORIES.forEach(function(c){ %>
+            <option value="<%= c %>" <%= item.category===c?'selected':'' %>><%= c %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">وحدة القياس <span style="color:#ef4444">*</span></label>
+          <select name="unit" class="form-select" required>
+            <% INVENTORY_UNITS.forEach(function(u){ %>
+            <option value="<%= u %>" <%= item.unit===u?'selected':'' %>><%= u %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-6">
+          <label class="form-label">اللون</label>
+          <input type="text" name="color" class="form-control" value="<%= item.color||'' %>">
+        </div>
+        <div class="col-6">
+          <label class="form-label">المورّد</label>
+          <input type="text" name="supplier" class="form-control" value="<%= item.supplier||'' %>">
+        </div>
+        <div class="col-6">
+          <label class="form-label">حد التنبيه</label>
+          <input type="number" name="low_stock_threshold" class="form-control" min="0" step="0.01"
+            value="<%= item.low_stock_threshold||10 %>">
+        </div>
+        <div class="col-6">
+          <label class="form-label">تكلفة الوحدة (ر.س)</label>
+          <input type="number" name="cost_per_unit" class="form-control" min="0" step="0.01"
+            value="<%= item.cost_per_unit||0 %>">
+        </div>
+        <div class="col-12">
+          <label class="form-label">ملاحظات</label>
+          <textarea name="notes" class="form-control" rows="2"><%= item.notes||'' %></textarea>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-4">
+        <button type="submit" class="btn btn-brand flex-grow-1">💾 حفظ التعديلات</button>
+        <a href="?tab=log" class="btn btn-outline-secondary">إلغاء</a>
+        <% if (user.role==='admin') { %>
+        <form method="POST" action="/inventory/items/<%= item.id %>/delete" style="margin:0"
+          onsubmit="return confirm('هل أنت متأكد من حذف هذا الصنف نهائياً؟')">
+          <button type="submit" class="btn btn-outline-danger">🗑</button>
+        </form>
+        <% } %>
+      </div>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>

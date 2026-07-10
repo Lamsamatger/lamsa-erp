@@ -1,0 +1,123 @@
+<%- include('../partials/head', {title: 'حركات المخزون'}) %>
+<style>
+:root{--navy:#1a2d4a;--gold:#c9a24b;--green:#10b981;--red:#ef4444;--orange:#f59e0b;--blue:#3b82f6;--purple:#7c3aed}
+.filter-bar{background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 6px rgba(0,0,0,.06);margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filter-bar input,.filter-bar select{font-size:.82rem;border-radius:9px;border:1.5px solid #e5e7eb;padding:7px 11px;background:#fafafa;font-family:'Tajawal',sans-serif}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--gold);outline:none;background:#fff}
+.mov-table{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden}
+.mov-table table{margin-bottom:0;font-size:.82rem}
+.mov-table thead th{background:#f8fafc;font-weight:700;color:#555;padding:11px 14px;white-space:nowrap;border-bottom:2px solid #eef0f4}
+.mov-table tbody tr:hover{background:#fffbf0}
+.mov-table tbody td{padding:11px 14px;vertical-align:middle;border-bottom:1px solid #f5f5f5}
+.mov-type{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.mov-recv{background:#dcfce7;color:#166534}.mov-issue{background:#fee2e2;color:#991b1b}
+.mov-ret{background:#dbeafe;color:#1e40af}.mov-adj{background:#f3e8ff;color:#6b21a8}.mov-cnt{background:#fef9c3;color:#854d0e}
+.qty-pos{color:var(--green);font-weight:700}.qty-neg{color:var(--red);font-weight:700}
+
+/* Mobile cards */
+.mov-card{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.07);padding:13px 15px;margin-bottom:8px;border-right:4px solid #e5e7eb}
+.mov-card.recv{border-right-color:var(--green)}.mov-card.issue{border-right-color:var(--red)}
+.mov-card.ret{border-right-color:var(--blue)}.mov-card.adj{border-right-color:var(--purple)}.mov-card.cnt{border-right-color:var(--orange)}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">🔄 حركات المخزون</h1>
+  <a href="/inventory" class="btn btn-sm btn-outline-secondary">← المخزون</a>
+</div>
+
+<!-- Filters -->
+<form method="GET" action="/inventory/movements">
+<div class="filter-bar">
+  <input type="text" name="q" value="<%= filters.q||'' %>" placeholder="🔎 بحث بالصنف أو الطلب…" style="flex:1;min-width:140px">
+  <select name="type">
+    <option value="">كل الأنواع</option>
+    <% MOVEMENT_TYPES.forEach(function(t){ %><option value="<%= t %>" <%= filters.type===t?'selected':'' %>><%= t %></option><% }) %>
+  </select>
+  <select name="category">
+    <option value="">كل الفئات</option>
+    <% ITEM_CATEGORIES.forEach(function(c){ %><option value="<%= c %>" <%= filters.category===c?'selected':'' %>><%= c %></option><% }) %>
+  </select>
+  <input type="date" name="date_from" value="<%= filters.date_from||'' %>" title="من تاريخ">
+  <input type="date" name="date_to"   value="<%= filters.date_to||'' %>"   title="إلى تاريخ">
+  <button type="submit" class="btn btn-sm btn-brand">تصفية</button>
+  <a href="/inventory/movements" class="btn btn-sm btn-outline-secondary">مسح</a>
+</div>
+</form>
+
+<div style="font-size:.8rem;color:#888;margin-bottom:10px"><%= movements.length %> حركة</div>
+
+<% if (!movements.length) { %>
+<div style="background:#fff;border-radius:16px;padding:50px;text-align:center;color:#aaa;box-shadow:0 2px 10px rgba(0,0,0,.06)">
+  <div style="font-size:2.5rem;margin-bottom:10px">📭</div>لا توجد حركات تطابق الفلتر
+</div>
+<% } %>
+
+<% if (movements.length) { %>
+<!-- Desktop -->
+<div class="mov-table d-none d-md-block">
+  <div class="table-responsive">
+    <table class="table table-hover">
+      <thead><tr>
+        <th>التاريخ</th><th>النوع</th><th>الصنف</th><th>الكمية</th>
+        <th>قبل</th><th>بعد</th><th>الطلب</th><th>الموظف</th><th>ملاحظات</th>
+      </tr></thead>
+      <tbody>
+      <% movements.forEach(function(m){
+        var tc = m.type==='استلام'?'mov-recv':m.type==='صرف'?'mov-issue':m.type==='إرجاع'?'mov-ret':m.type==='تسوية'?'mov-adj':'mov-cnt';
+        var qc = m.qty>=0?'qty-pos':'qty-neg';
+        var qs = m.qty>0?'+':'';
+      %>
+        <tr>
+          <td style="white-space:nowrap;font-size:.78rem;color:#888">
+            <%= new Date(m.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %>
+            <br><small><%= new Date(m.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) %></small>
+          </td>
+          <td><span class="mov-type <%= tc %>"><%= m.type %></span></td>
+          <td>
+            <a href="/inventory/items/<%= m.item_id %>" style="font-weight:700;color:var(--navy);text-decoration:none"><%= m.item_name %></a>
+            <% if (m.item_category) { %><br><small style="color:#aaa;font-size:.7rem"><%= m.item_category %></small><% } %>
+          </td>
+          <td class="<%= qc %>"><%= qs %><%= Math.abs(m.qty) %> <small style="color:#888;font-weight:400"><%= m.item_unit||'' %></small></td>
+          <td style="color:#888;font-size:.8rem"><%= m.qty_before %></td>
+          <td style="font-weight:700;font-size:.88rem"><%= m.qty_after %></td>
+          <td>
+            <% if (m.order_number) { %><a href="/orders/<%= m.order_id %>" style="font-family:monospace;font-size:.78rem;color:var(--navy);font-weight:700"><%= m.order_number %></a><% } else { %>—<% } %>
+          </td>
+          <td style="font-size:.78rem;color:#666"><%= m.user_name %></td>
+          <td style="font-size:.75rem;color:#888;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><%= m.notes||m.reference||'—' %></td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mobile -->
+<div class="d-md-none">
+<% movements.forEach(function(m){
+  var cls = m.type==='استلام'?'recv':m.type==='صرف'?'issue':m.type==='إرجاع'?'ret':m.type==='تسوية'?'adj':'cnt';
+  var tc  = m.type==='استلام'?'mov-recv':m.type==='صرف'?'mov-issue':m.type==='إرجاع'?'mov-ret':m.type==='تسوية'?'mov-adj':'mov-cnt';
+  var qc  = m.qty>=0?'qty-pos':'qty-neg';
+  var qs  = m.qty>0?'+':'';
+%>
+  <div class="mov-card <%= cls %>">
+    <div class="d-flex justify-content-between align-items-flex-start gap-2 mb-1">
+      <span class="mov-type <%= tc %>"><%= m.type %></span>
+      <span class="<%= qc %>"><%= qs %><%= Math.abs(m.qty) %> <small style="font-weight:400;color:#888"><%= m.item_unit||'' %></small></span>
+    </div>
+    <div style="font-weight:700;font-size:.88rem;color:var(--navy)">
+      <a href="/inventory/items/<%= m.item_id %>" style="color:inherit;text-decoration:none"><%= m.item_name %></a>
+    </div>
+    <div style="font-size:.72rem;color:#888;margin-top:4px;display:flex;gap:10px;flex-wrap:wrap">
+      <span><%= m.qty_before %> → <strong><%= m.qty_after %></strong></span>
+      <% if (m.order_number) { %><a href="/orders/<%= m.order_id %>" style="font-family:monospace;color:var(--navy);font-weight:700"><%= m.order_number %></a><% } %>
+      <span>👤 <%= m.user_name %></span>
+      <span>🕐 <%= new Date(m.at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></span>
+    </div>
+    <% if (m.notes||m.reference) { %><div style="font-size:.72rem;color:#aaa;margin-top:2px"><%= m.notes||m.reference %></div><% } %>
+  </div>
+<% }) %>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>
