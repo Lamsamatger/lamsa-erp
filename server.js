@@ -69,22 +69,34 @@ app.use((req, res, next) => {
   res.locals.ORDER_STATUSES = ORDER_STATUSES;
   res.locals.STATUS_COLORS = STATUS_COLORS;
   res.locals.path = req.path;
-  // Inject granular permissions for templates
   const role = req.session.user?.role || '';
   const perms = ROLE_PERMISSIONS[role] || { view: true };
   res.locals.userCan = perms;
-  // hideCustomer: role capability AND system setting (30-second cached read)
-  const secSettings = getCachedSecuritySettings();
-  const sysHide = secSettings.hideCustomerFromProduction !== false;
-  res.locals.hideCustomer = perms.hideCustomer === true && sysHide;
-  // Unassigned embroidery jobs badge count (only for authenticated users)
+
   if (req.session.user) {
+    // One DB read per authenticated request — covers security, modules, sidebar, embroidery badge
     try {
       const _db = load();
+      const s = _db.meta?.settings || {};
+      const secSettings = s.security || {};
+      const sysHide = secSettings.hideCustomerFromProduction !== false;
+      res.locals.hideCustomer = perms.hideCustomer === true && sysHide;
+      res.locals.moduleSettings = { ...DEFAULT_SETTINGS.modules, ...(s.modules || {}) };
+      res.locals.sidebarOrder   = s.sidebar_order || [...DEFAULT_SETTINGS.sidebar_order];
       res.locals.unassignedEmbroideryCount = (_db.embroidery_jobs || [])
         .filter(j => !j.embroiderer_id).length;
-    } catch (e) { res.locals.unassignedEmbroideryCount = 0; }
+    } catch (e) {
+      res.locals.hideCustomer = false;
+      res.locals.moduleSettings = { ...DEFAULT_SETTINGS.modules };
+      res.locals.sidebarOrder   = [...DEFAULT_SETTINGS.sidebar_order];
+      res.locals.unassignedEmbroideryCount = 0;
+    }
   } else {
+    const secSettings = getCachedSecuritySettings();
+    const sysHide = secSettings.hideCustomerFromProduction !== false;
+    res.locals.hideCustomer = perms.hideCustomer === true && sysHide;
+    res.locals.moduleSettings = { ...DEFAULT_SETTINGS.modules };
+    res.locals.sidebarOrder   = [...DEFAULT_SETTINGS.sidebar_order];
     res.locals.unassignedEmbroideryCount = 0;
   }
   next();
@@ -549,12 +561,14 @@ app.post('/prep/print', requireAuth, requireSection('prep'), (req, res) => {
         })
       };
     });
-  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage, baseUrl });
+  const cardSettings = { ...DEFAULT_SETTINGS.card_designer, ...(db.meta?.settings?.card_designer || {}) };
+  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage, baseUrl, cardSettings });
 });
 
 app.get('/prep/print-all', requireAuth, requireSection('prep'), (req, res) => {
   const db = load();
-  const cardsPerPage = parseInt(req.query.layout) === 16 ? 16 : 12;
+  const savedLayout = db.meta?.settings?.card_designer?.default_layout;
+  const cardsPerPage = parseInt(req.query.layout) || savedLayout || 12;
   const baseUrl = process.env.APP_BASE_URL || (req.protocol + '://' + req.hostname);
   const orders = db.orders
     .filter(o => !['تم التنفيذ', 'ملغي'].includes(o.status))
@@ -569,7 +583,8 @@ app.get('/prep/print-all', requireAuth, requireSection('prep'), (req, res) => {
         })
       };
     });
-  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage, baseUrl });
+  const cardSettings = { ...DEFAULT_SETTINGS.card_designer, ...(db.meta?.settings?.card_designer || {}) };
+  res.render('prep/print_cards', { orders, STATUS_COLORS, cardsPerPage, baseUrl, cardSettings });
 });
 
 // ---------- ITEM STAGE UPDATE ----------
@@ -2596,6 +2611,114 @@ app.post('/users/:id/delete', requireAuth, requireSection('users'), (req, res) =
     save(db);
   }
   res.redirect('/settings/users');
+});
+
+// ═══════════════════════════════════════════════════════
+// ADMIN CONTROL PANEL
+// ═══════════════════════════════════════════════════════
+
+function requireAdmin(req, res, next) {
+  if (!req.session.user || req.session.user.role !== 'admin')
+    return res.status(403).render('error', { message: 'هذه الصفحة للمدير فقط' });
+  next();
+}
+
+// ── Admin hub ─────────────────────────────────────────
+app.get('/admin', requireAuth, requireAdmin, (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  save(db);
+  res.render('admin/index', {
+    title: 'لوحة التحكم المتقدمة',
+    settings,
+    userCount:     (db.users||[]).length,
+    activeUsers:   (db.users||[]).filter(u => u.active !== false).length,
+    productCount:  (db.products||[]).length,
+    workshopCount: (db.workshops||[]).length,
+    orderCount:    (db.orders||[]).length,
+    logCount:      (db.activity_logs||[]).length
+  });
+});
+
+// ── Module & sidebar settings ──────────────────────────
+app.get('/admin/modules', requireAuth, requireAdmin, (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  save(db);
+  res.render('admin/modules', {
+    title: 'تحكم بالوحدات',
+    moduleSettings: { ...DEFAULT_SETTINGS.modules, ...(settings.modules || {}) },
+    sidebarOrder:   settings.sidebar_order || [...DEFAULT_SETTINGS.sidebar_order],
+    DEFAULT_SETTINGS,
+    success: req.query.success || null,
+    error:   req.query.error   || null
+  });
+});
+
+app.post('/admin/modules', requireAuth, requireAdmin, (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  // Visibility toggles
+  const newModules = {};
+  Object.keys(DEFAULT_SETTINGS.modules).forEach(k => {
+    newModules[k] = req.body['module_' + k] === 'on';
+  });
+  // Settings always visible to admin
+  newModules.settings = true;
+  // Sidebar order (comma-separated list from hidden input)
+  const orderStr = (req.body.sidebar_order || '').trim();
+  const allKeys  = Object.keys(DEFAULT_SETTINGS.modules);
+  const newOrder = orderStr
+    ? orderStr.split(',').filter(k => allKeys.includes(k))
+    : [...DEFAULT_SETTINGS.sidebar_order];
+  // Append any keys not present in the submitted order
+  allKeys.forEach(k => { if (!newOrder.includes(k)) newOrder.push(k); });
+  settings.modules       = newModules;
+  settings.sidebar_order = newOrder;
+  db.meta.settings = settings;
+  log(db, req.session.user.id, 'تعديل إعدادات الوحدات',
+    'تحديث رؤية الوحدات وترتيب الشريط الجانبي', { module: 'admin', type: 'update' });
+  save(db);
+  invalidateSettingsCache();
+  res.redirect('/admin/modules?success=' + encodeURIComponent('تم حفظ إعدادات الوحدات'));
+});
+
+// ── Card designer ──────────────────────────────────────
+app.get('/admin/card-designer', requireAuth, requireAdmin, (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  save(db);
+  res.render('admin/card_designer', {
+    title: 'مصمم بطاقة التجهيز',
+    cardSettings: { ...DEFAULT_SETTINGS.card_designer, ...(settings.card_designer || {}) },
+    success: req.query.success || null,
+    error:   req.query.error   || null
+  });
+});
+
+app.post('/admin/card-designer', requireAuth, requireAdmin, (req, res) => {
+  const db = load();
+  const settings = initSettings(db);
+  const BOOL_FIELDS = [
+    'show_image','show_order_number','show_product_name','show_sku',
+    'show_size','show_color','show_quantity','show_pieces_count',
+    'show_embroidery','show_production_notes','show_qr','show_barcode_text',
+    'show_stage','show_type_badge','show_checklist'
+  ];
+  const updated = { ...DEFAULT_SETTINGS.card_designer };
+  BOOL_FIELDS.forEach(f => { updated[f] = req.body[f] === 'on'; });
+  updated.default_layout = [12, 16].includes(Number(req.body.default_layout))
+    ? Number(req.body.default_layout) : 12;
+  updated.margin_mm = Math.max(0, Math.min(10, Number(req.body.margin_mm) || 2));
+  updated.qr_size   = ['small','medium','large'].includes(req.body.qr_size)
+    ? req.body.qr_size : 'medium';
+  settings.card_designer = updated;
+  db.meta.settings = settings;
+  log(db, req.session.user.id, 'تعديل مصمم بطاقة التجهيز',
+    'تحديث إعدادات بطاقة التجهيز', { module: 'admin', type: 'update' });
+  save(db);
+  invalidateSettingsCache();
+  res.redirect('/admin/card-designer?success=' + encodeURIComponent('تم حفظ إعدادات البطاقة'));
 });
 
 // ---------- REPORTS (simple, part of dashboard) ----------

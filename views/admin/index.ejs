@@ -1,0 +1,146 @@
+<%- include('../partials/head', {title: 'لوحة التحكم المتقدمة'}) %>
+
+<style>
+.admin-hub { max-width: 960px; margin: 0 auto; }
+.admin-hub-header {
+  background: linear-gradient(135deg, #1a2d4a 0%, #2d4a6e 100%);
+  border-radius: 16px; padding: 28px 28px 24px; margin-bottom: 28px;
+  color: #fff; position: relative; overflow: hidden;
+}
+.admin-hub-header::before {
+  content: '🛡️'; position: absolute; left: 20px; top: 50%;
+  transform: translateY(-50%); font-size: 5rem; opacity: .08;
+}
+.admin-hub-header h1 { font-size: 1.4rem; font-weight: 900; margin-bottom: 4px; }
+.admin-hub-header p  { color: rgba(255,255,255,.7); font-size: .9rem; margin: 0; }
+.admin-stats { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.admin-stat {
+  background: rgba(255,255,255,.12); border-radius: 10px;
+  padding: 8px 16px; font-size: .82rem; color: rgba(255,255,255,.9);
+}
+.admin-stat strong { font-size: 1.1rem; display: block; color: #c9a24b; }
+
+.admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 16px; }
+.admin-card {
+  background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  padding: 22px; text-decoration: none; color: inherit; transition: all .18s;
+  display: flex; flex-direction: column; gap: 8px; border: 2px solid transparent;
+}
+.admin-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12); border-color: #c9a24b; }
+.admin-card .ac-icon { font-size: 2.2rem; }
+.admin-card .ac-title { font-size: 1rem; font-weight: 800; color: #1a2d4a; }
+.admin-card .ac-desc  { font-size: .82rem; color: #888; line-height: 1.5; flex: 1; }
+.admin-card .ac-arrow { font-size: .9rem; color: #c9a24b; font-weight: 700; align-self: flex-end; }
+.admin-card .ac-badge {
+  display: inline-flex; align-items: center;
+  background: #f0f4ff; color: #2d5096; border-radius: 20px;
+  padding: 2px 10px; font-size: .72rem; font-weight: 700; width: fit-content;
+}
+.section-label {
+  font-size: .8rem; font-weight: 800; color: #999; text-transform: uppercase;
+  letter-spacing: .5px; margin: 20px 0 10px; grid-column: 1/-1;
+}
+</style>
+
+<div class="admin-hub">
+
+  <div class="admin-hub-header">
+    <h1>🛡️ لوحة التحكم المتقدمة</h1>
+    <p>إدارة شاملة لإعدادات النظام، الوحدات، المستخدمين، والطباعة — دون الحاجة لتعديل الكود.</p>
+    <div class="admin-stats">
+      <div class="admin-stat"><strong><%= userCount %></strong> مستخدم</div>
+      <div class="admin-stat"><strong><%= activeUsers %></strong> نشط</div>
+      <div class="admin-stat"><strong><%= productCount %></strong> منتج</div>
+      <div class="admin-stat"><strong><%= workshopCount %></strong> مشغل</div>
+      <div class="admin-stat"><strong><%= orderCount %></strong> طلب</div>
+      <div class="admin-stat"><strong><%= logCount %></strong> سجل نشاط</div>
+    </div>
+  </div>
+
+  <div class="admin-grid">
+
+    <!-- Appearance -->
+    <div class="section-label">🎨 المظهر والتخصيص</div>
+
+    <a href="/admin/modules" class="admin-card">
+      <div class="ac-icon">📋</div>
+      <div class="ac-title">تحكم بالوحدات</div>
+      <div class="ac-desc">إظهار أو إخفاء الوحدات في الشريط الجانبي، وضبط ترتيب عرضها.</div>
+      <span class="ac-badge">رؤية + ترتيب</span>
+      <div class="ac-arrow">الضبط ← </div>
+    </a>
+
+    <a href="/admin/card-designer" class="admin-card">
+      <div class="ac-icon">🗂️</div>
+      <div class="ac-title">مصمم بطاقة التجهيز</div>
+      <div class="ac-desc">تخصيص محتوى بطاقات الطباعة — إخفاء أو إظهار الحقول، حجم QR، الهوامش، عدد البطاقات.</div>
+      <span class="ac-badge">طباعة + QR</span>
+      <div class="ac-arrow">الضبط ← </div>
+    </a>
+
+    <!-- Data Management -->
+    <div class="section-label">📦 إدارة البيانات</div>
+
+    <a href="/products" class="admin-card">
+      <div class="ac-icon">👗</div>
+      <div class="ac-title">إدارة المنتجات</div>
+      <div class="ac-desc">إضافة وتعديل المنتجات، الفئات، المقاسات، الألوان، الصور، وكود SKU.</div>
+      <span class="ac-badge"><%= productCount %> منتج</span>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+    <a href="/workshops" class="admin-card">
+      <div class="ac-icon">🏭</div>
+      <div class="ac-title">إدارة المشاغل</div>
+      <div class="ac-desc">إضافة وتعديل المشاغل، ضبط الحالة، وتكوين صلاحيات كل مشغل.</div>
+      <span class="ac-badge"><%= workshopCount %> مشغل</span>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+    <a href="/embroiderers" class="admin-card">
+      <div class="ac-icon">🧵</div>
+      <div class="ac-title">إدارة المطرزين</div>
+      <div class="ac-desc">إضافة وتعديل المطرزين وتعيين الوظائف المعلقة.</div>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+    <!-- Users -->
+    <div class="section-label">👥 المستخدمون والصلاحيات</div>
+
+    <a href="/settings/users" class="admin-card">
+      <div class="ac-icon">👤</div>
+      <div class="ac-title">المستخدمون</div>
+      <div class="ac-desc">إنشاء مستخدمين، تعيين الأدوار، تغيير الحالة، وحذف الحسابات.</div>
+      <span class="ac-badge"><%= userCount %> مستخدم</span>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+    <a href="/settings/roles" class="admin-card">
+      <div class="ac-icon">🔐</div>
+      <div class="ac-title">الأدوار والصلاحيات</div>
+      <div class="ac-desc">عرض صلاحيات كل دور والوصول لكل قسم.</div>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+    <!-- System -->
+    <div class="section-label">⚙️ النظام والسجلات</div>
+
+    <a href="/settings/system" class="admin-card">
+      <div class="ac-icon">⚙️</div>
+      <div class="ac-title">إعدادات النظام</div>
+      <div class="ac-desc">إعدادات الشركة، الأمان، الباركود، الطباعة، العملة، والإشعارات.</div>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+    <a href="/settings/activity" class="admin-card">
+      <div class="ac-icon">📜</div>
+      <div class="ac-title">سجل النشاط</div>
+      <div class="ac-desc">مراقبة جميع إجراءات المستخدمين: الاسم، الإجراء، القسم، التاريخ والوقت.</div>
+      <span class="ac-badge"><%= logCount %> سجل</span>
+      <div class="ac-arrow">فتح ← </div>
+    </a>
+
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

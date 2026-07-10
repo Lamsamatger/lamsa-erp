@@ -1,0 +1,223 @@
+<%- include('../partials/head', {title: 'تحكم بالوحدات'}) %>
+
+<style>
+.modules-wrap { max-width: 860px; margin: 0 auto; }
+.page-header { margin-bottom: 24px; }
+.page-header h2 { font-size: 1.3rem; font-weight: 900; color: #1a2d4a; margin-bottom: 4px; }
+.page-header p  { color: #888; font-size: .88rem; margin: 0; }
+
+.alert-success {
+  background: #d1fae5; border: 1.5px solid #6ee7b7; color: #065f46;
+  border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; font-size: .88rem;
+}
+
+.section-card {
+  background: #fff; border-radius: 14px; box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  margin-bottom: 20px; overflow: hidden;
+}
+.section-card-title {
+  background: #f8fafc; border-bottom: 1px solid #e8ecf0;
+  padding: 14px 18px; font-weight: 800; font-size: .9rem; color: #1a2d4a;
+  display: flex; align-items: center; gap: 8px;
+}
+.module-list { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+
+.module-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+  border-radius: 10px; border: 1.5px solid #e0e0e0; background: #fff;
+  cursor: grab; transition: all .15s; user-select: none;
+}
+.module-row:hover    { border-color: #c9a24b; background: #fffbf0; }
+.module-row.dragging { opacity: .45; border-style: dashed; }
+.module-row.drag-over { border-color: #0d6efd; background: #f0f4ff; }
+
+.drag-handle { color: #bbb; font-size: 1rem; cursor: grab; flex-shrink: 0; }
+.module-icon  { font-size: 1.2rem; flex-shrink: 0; }
+.module-label { font-weight: 700; font-size: .88rem; color: #1a2d4a; flex: 1; }
+.module-desc  { font-size: .75rem; color: #999; margin-top: 1px; }
+
+/* Toggle switch */
+.toggle-wrap { flex-shrink: 0; }
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute; inset: 0; background: #e5e7eb; border-radius: 24px;
+  cursor: pointer; transition: background .2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute; width: 18px; height: 18px;
+  left: 3px; top: 3px; background: #fff; border-radius: 50%;
+  transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle-switch input:checked + .toggle-slider { background: #10b981; }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+.locked-badge {
+  background: #f3f4f6; color: #9ca3af; border-radius: 20px;
+  padding: 2px 10px; font-size: .72rem; font-weight: 700;
+}
+
+.save-bar {
+  position: sticky; bottom: 0; background: #fff; border-top: 2px solid #e8ecf0;
+  padding: 14px 20px; display: flex; gap: 12px; align-items: center;
+  box-shadow: 0 -4px 12px rgba(0,0,0,.08); z-index: 50; margin-top: 20px;
+  border-radius: 0 0 14px 14px;
+}
+.btn-save {
+  background: #1a2d4a; color: #fff; border: none; border-radius: 10px;
+  padding: 11px 28px; font-weight: 800; font-size: .9rem;
+  font-family: 'Tajawal', sans-serif; cursor: pointer; transition: background .15s;
+}
+.btn-save:hover { background: #0e1d30; }
+.btn-cancel { color: #888; text-decoration: none; font-size: .88rem; font-weight: 600; }
+.btn-reset  { color: #dc3545; font-size: .82rem; font-weight: 700;
+  background: none; border: none; cursor: pointer; font-family: 'Tajawal',sans-serif; margin-right: auto; }
+
+.info-pill {
+  background: #f0f4ff; border: 1px solid #c7d7f5; border-radius: 10px;
+  padding: 10px 16px; font-size: .82rem; color: #2d5096; margin-bottom: 16px;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+</style>
+
+<div class="modules-wrap">
+  <div class="page-header">
+    <a href="/admin" style="color:#c9a24b;text-decoration:none;font-size:.85rem;font-weight:700">← لوحة التحكم</a>
+    <h2 style="margin-top:6px">📋 تحكم بالوحدات</h2>
+    <p>فعّل أو أوقف الوحدات في الشريط الجانبي، واسحب الصفوف لإعادة ترتيبها.</p>
+  </div>
+
+  <% if (success) { %><div class="alert-success">✅ <%= success %></div><% } %>
+
+  <div class="info-pill">
+    ℹ️ وحدتا <strong>الإعدادات</strong> و<strong>لوحة الإدارة</strong> مقفلتان ولا يمكن إخفاؤهما عن المدير.
+    الترتيب بالسحب والإفلات.
+  </div>
+
+  <form id="modules-form" method="POST" action="/admin/modules">
+    <input type="hidden" id="sidebar-order-input" name="sidebar_order" value="">
+
+    <div class="section-card">
+      <div class="section-card-title">📦 الوحدات المتاحة</div>
+      <div class="module-list" id="sortable-list">
+        <%
+        const ALL_MOD_DEFS = [
+          { key:'dashboard',   label:'📊 لوحة التحكم',     desc:'الصفحة الرئيسية والإحصاءات' },
+          { key:'orders',      label:'📦 الطلبات',          desc:'قائمة الطلبات وإضافة طلب جديد' },
+          { key:'search',      label:'🔎 بحث طلب',          desc:'البحث السريع عن طلب برقم أو اسم' },
+          { key:'prep',        label:'🗂️ قوائم التجهيز',    desc:'بطاقات التجهيز وإدارة الطباعة' },
+          { key:'production',  label:'⚙️ الإنتاج',           desc:'متابعة مراحل الإنتاج والمشاغل' },
+          { key:'packaging',   label:'📦 التغليف والشحن',   desc:'إدارة التغليف والشحن والتسليم' },
+          { key:'inventory',   label:'🏭 المخزون',           desc:'إدارة المخزون والحركات' },
+          { key:'scanner',     label:'🔬 ماسح الإنتاج',     desc:'مسح الباركود ومتابعة القطع' },
+          { key:'barcode_scan',label:'📷 مسح الباركود',      desc:'ماسح الباركود السريع' },
+          { key:'products',    label:'👗 المنتجات',          desc:'إدارة المنتجات والفئات والصور' },
+          { key:'workshops',   label:'🏭 المشاغل',           desc:'إدارة المشاغل الخارجية' },
+          { key:'embroidery',  label:'🧵 المطرزين',          desc:'إدارة المطرزين والوظائف' },
+          { key:'accounts',    label:'💰 الحسابات',          desc:'الحسابات والمدفوعات' },
+          { key:'reports',     label:'📈 التقارير',          desc:'التقارير والإحصاءات التفصيلية' },
+        ];
+
+        // Sort by saved sidebar_order
+        const sortedMods = [...ALL_MOD_DEFS].sort((a, b) => {
+          const ai = sidebarOrder.indexOf(a.key);
+          const bi = sidebarOrder.indexOf(b.key);
+          return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+        });
+        %>
+        <% sortedMods.forEach(function(m) { %>
+        <div class="module-row" data-key="<%= m.key %>" draggable="true">
+          <span class="drag-handle">⠿</span>
+          <span class="module-icon"><%= m.label.split(' ')[0] %></span>
+          <div style="flex:1">
+            <div class="module-label"><%= m.label.split(' ').slice(1).join(' ') %></div>
+            <div class="module-desc"><%= m.desc %></div>
+          </div>
+          <div class="toggle-wrap">
+            <label class="toggle-switch">
+              <input type="checkbox" name="module_<%= m.key %>"
+                <%= moduleSettings[m.key] !== false ? 'checked' : '' %>>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <% }) %>
+
+        <!-- Locked entries -->
+        <div class="module-row" style="cursor:default;opacity:.7">
+          <span class="drag-handle" style="color:#e0e0e0">⠿</span>
+          <span class="module-icon">⚙️</span>
+          <div style="flex:1">
+            <div class="module-label">الإعدادات</div>
+            <div class="module-desc">إعدادات النظام والمستخدمين (للمدير دائماً)</div>
+          </div>
+          <span class="locked-badge">🔒 مقفل</span>
+        </div>
+        <div class="module-row" style="cursor:default;opacity:.7">
+          <span class="drag-handle" style="color:#e0e0e0">⠿</span>
+          <span class="module-icon">🛡️</span>
+          <div style="flex:1">
+            <div class="module-label">لوحة الإدارة</div>
+            <div class="module-desc">التحكم المتقدم (للمدير دائماً)</div>
+          </div>
+          <span class="locked-badge">🔒 مقفل</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="save-bar">
+      <button type="button" class="btn-reset" onclick="if(confirm('إعادة الإعدادات الافتراضية؟')) resetToDefault()">↩ استعادة الافتراضية</button>
+      <a href="/admin" class="btn-cancel">إلغاء</a>
+      <button type="submit" class="btn-save" onclick="collectOrder()">💾 حفظ الإعدادات</button>
+    </div>
+  </form>
+</div>
+
+<script>
+// ── Drag-and-drop reordering ──────────────────────────
+const list = document.getElementById('sortable-list');
+let dragged = null;
+
+list.addEventListener('dragstart', function(e) {
+  dragged = e.target.closest('.module-row[draggable]');
+  if (!dragged) return;
+  dragged.classList.add('dragging');
+});
+list.addEventListener('dragend', function(e) {
+  if (dragged) dragged.classList.remove('dragging');
+  list.querySelectorAll('.module-row').forEach(r => r.classList.remove('drag-over'));
+  dragged = null;
+});
+list.addEventListener('dragover', function(e) {
+  e.preventDefault();
+  const target = e.target.closest('.module-row[draggable]');
+  if (!target || target === dragged) return;
+  list.querySelectorAll('.module-row').forEach(r => r.classList.remove('drag-over'));
+  target.classList.add('drag-over');
+});
+list.addEventListener('drop', function(e) {
+  e.preventDefault();
+  const target = e.target.closest('.module-row[draggable]');
+  if (!target || !dragged || target === dragged) return;
+  const all   = [...list.querySelectorAll('.module-row[draggable]')];
+  const from  = all.indexOf(dragged);
+  const to    = all.indexOf(target);
+  if (from < to) target.after(dragged);
+  else target.before(dragged);
+  list.querySelectorAll('.module-row').forEach(r => r.classList.remove('drag-over'));
+});
+
+// Collect order from DOM before submit
+function collectOrder() {
+  const keys = [...list.querySelectorAll('.module-row[data-key]')]
+    .map(r => r.dataset.key);
+  document.getElementById('sidebar-order-input').value = keys.join(',');
+}
+
+// Reset toggles to all-on
+function resetToDefault() {
+  list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = true; });
+}
+</script>
+
+<%- include('../partials/foot') %>

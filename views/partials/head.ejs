@@ -12,7 +12,52 @@
 <link rel="stylesheet" href="/public/css/style.css">
 </head>
 <body>
-<% if (user) { %>
+<% if (user) {
+  // ── Build dynamic sidebar ──────────────────────────────────
+  const ALL_MODULES = [
+    { key:'dashboard',   label:'📊 لوحة التحكم',     href:'/',              active: path==='/' },
+    { key:'orders',      label:'📦 الطلبات',          href:'/orders',        active: path.startsWith('/orders') },
+    { key:'search',      label:'🔎 بحث طلب',          href:'/search',        active: path.startsWith('/search') },
+    { key:'prep',        label:'🗂️ قوائم التجهيز',    href:'/prep',          active: path.startsWith('/prep') },
+    { key:'production',  label:'⚙️ الإنتاج',           href:'/production',    active: path.startsWith('/production') },
+    { key:'packaging',   label:'📦 التغليف والشحن',   href:'/packaging',     active: path.startsWith('/packaging') },
+    { key:'inventory',   label:'🏭 المخزون',           href:'/inventory',     active: path.startsWith('/inventory') },
+    { key:'scanner',     label:'🔬 ماسح الإنتاج',     href:'/scanner',       active: path.startsWith('/scanner') },
+    { key:'barcode_scan',label:'📷 مسح الباركود',      href:'/barcode',       active: path.startsWith('/barcode') },
+    { key:'products',    label:'👗 المنتجات',          href:'/products',      active: path.startsWith('/products') },
+    { key:'workshops',   label:'🏭 المشاغل',           href:'/workshops',     active: path.startsWith('/workshops') },
+    { key:'embroidery',  label:'🧵 المطرزين',          href:'/embroiderers',  active: path.startsWith('/embroiderers'),
+      badge: unassignedEmbroideryCount > 0 ? unassignedEmbroideryCount : null },
+    { key:'accounts',    label:'💰 الحسابات',          href:'/accounts',      active: path.startsWith('/accounts') },
+    { key:'reports',     label:'📈 التقارير',          href:'/reports',       active: path.startsWith('/reports') },
+  ];
+  // Admin-only entries always visible to admin regardless of module toggles
+  const ADMIN_ONLY = [
+    { key:'settings', label:'⚙️ الإعدادات', href:'/settings',
+      active: path.startsWith('/settings')||path.startsWith('/users'), adminOnly:true },
+    { key:'admin',    label:'🛡️ لوحة الإدارة', href:'/admin',
+      active: path.startsWith('/admin'), adminOnly:true },
+  ];
+
+  const ms  = moduleSettings || {};
+  const ord = Array.isArray(sidebarOrder) && sidebarOrder.length
+    ? sidebarOrder
+    : ALL_MODULES.map(m => m.key);
+
+  // Build index for fast lookup
+  const modMap = {};
+  ALL_MODULES.forEach(m => { modMap[m.key] = m; });
+
+  // Sorted, filtered public links
+  const sidebarLinks = ord
+    .map(k => modMap[k])
+    .filter(m => m && ms[m.key] !== false);
+
+  // Admin-only links (settings + admin panel) always appended for admins
+  if (user.role === 'admin') {
+    ADMIN_ONLY.forEach(m => sidebarLinks.push(m));
+  }
+%>
 <div class="topbar d-flex align-items-center justify-content-between px-3">
   <button class="btn btn-sm btn-outline-light d-lg-none me-2" id="sidebar-toggle" onclick="toggleSidebar()" aria-label="القائمة">☰</button>
   <div class="brand">لمسة أزيائي <span class="opacity-75 d-none d-sm-inline">للإنتاج</span></div>
@@ -28,23 +73,14 @@
 
 <div class="app-wrap">
   <nav class="sidebar">
-    <a class="nav-link <%= path==='/'?'active':'' %>" href="/">📊 لوحة التحكم</a>
-    <a class="nav-link <%= path.startsWith('/orders')?'active':'' %>" href="/orders">📦 الطلبات</a>
-    <a class="nav-link <%= path.startsWith('/search')?'active':'' %>" href="/search">🔎 بحث طلب</a>
-    <a class="nav-link <%= path.startsWith('/prep')?'active':'' %>" href="/prep">🗂️ قوائم التجهيز</a>
-    <a class="nav-link <%= path.startsWith('/production')?'active':'' %>" href="/production">⚙️ الإنتاج</a>
-    <a class="nav-link <%= path.startsWith('/packaging')?'active':'' %>" href="/packaging">📦 التغليف والشحن</a>
-    <a class="nav-link <%= path.startsWith('/inventory')?'active':'' %>" href="/inventory">🏭 المخزون</a>
-    <a class="nav-link <%= path.startsWith('/scanner')?'active':'' %>" href="/scanner">🔬 ماسح الإنتاج</a>
-    <a class="nav-link <%= path.startsWith('/barcode')?'active':'' %>" href="/barcode">📷 مسح الباركود</a>
-    <a class="nav-link <%= path.startsWith('/products')?'active':'' %>" href="/products">👗 المنتجات</a>
-    <a class="nav-link <%= path.startsWith('/workshops')?'active':'' %>" href="/workshops">🏭 المشاغل</a>
-    <a class="nav-link <%= path.startsWith('/embroiderers')?'active':'' %>" href="/embroiderers">🧵 المطرزين<% if (unassignedEmbroideryCount > 0) { %> <span class="badge bg-danger rounded-pill ms-1" style="font-size:.7rem"><%= unassignedEmbroideryCount %></span><% } %></a>
-    <a class="nav-link <%= path.startsWith('/accounts')?'active':'' %>" href="/accounts">💰 الحسابات</a>
-    <a class="nav-link <%= path.startsWith('/reports')?'active':'' %>" href="/reports">📈 التقارير</a>
-    <% if (user.role === 'admin') { %>
-    <a class="nav-link <%= (path.startsWith('/settings')||path.startsWith('/users'))?'active':'' %>" href="/settings">⚙️ الإعدادات</a>
-    <% } %>
+    <% sidebarLinks.forEach(function(m) { %>
+    <a class="nav-link <%= m.active ? 'active' : '' %>" href="<%= m.href %>">
+      <%= m.label %>
+      <% if (m.badge) { %>
+        <span class="badge bg-danger rounded-pill ms-1" style="font-size:.7rem"><%= m.badge %></span>
+      <% } %>
+    </a>
+    <% }); %>
   </nav>
   <main class="content">
 <% } else { %>
