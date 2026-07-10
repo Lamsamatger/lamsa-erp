@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { load, save, newId, nextOrderNumber, hashPassword, verifyPassword, log, DEFAULT_SETTINGS } = require('./lib/db');
 const { ORDER_TYPES, ORDER_STATUSES, STATUS_COLORS, ROLES, ROLE_PERMISSIONS, HIDE_CUSTOMER_ROLES, PERMISSIONS, DELAY_DAYS_THRESHOLD } = require('./lib/constants');
+const { classifyOrder } = require('./lib/classify');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,49 +31,6 @@ app.use(session({
   saveUninitialized: false,
   cookie: { maxAge: 1000 * 60 * 60 * 12 }
 }));
-
-// ---------- classifyOrder helper ----------
-/**
- * Returns 'مخزون' if every order item has enough variant-matched qty in
- * inventory_items, else 'إنتاج'.
- *
- * Matching priority (most-specific first):
- *   1. product_id + size + color  (exact variant)
- *   2. product_id + size          (same product, same size, any color)
- *   3. product_id only            (same product, any variant)
- *
- * The name-contains fallback is intentionally removed — it caused false
- * stock matches when an unrelated variant happened to share a word.
- */
-function classifyOrder(orderItems, inventoryItems) {
-  if (!inventoryItems || inventoryItems.length === 0) return 'إنتاج';
-  for (const oi of orderItems) {
-    const pid   = oi.product_id;
-    const size  = (oi.size  || '').trim().toLowerCase();
-    const color = (oi.color || '').trim().toLowerCase();
-    const need  = Number(oi.qty) || 1;
-
-    // Try most-specific match first, then progressively broader
-    let candidates = inventoryItems.filter(inv =>
-      inv.product_id === pid &&
-      (inv.size  || '').trim().toLowerCase() === size &&
-      (inv.color || '').trim().toLowerCase() === color
-    );
-    if (!candidates.length && size) {
-      candidates = inventoryItems.filter(inv =>
-        inv.product_id === pid &&
-        (inv.size || '').trim().toLowerCase() === size
-      );
-    }
-    if (!candidates.length) {
-      candidates = inventoryItems.filter(inv => inv.product_id === pid);
-    }
-
-    const available = candidates.reduce((s, inv) => s + (Number(inv.qty) || 0), 0);
-    if (available < need) return 'إنتاج';
-  }
-  return 'مخزون';
-}
 
 // ---------- helpers ----------
 function daysBetween(iso) {
