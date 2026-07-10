@@ -1,0 +1,182 @@
+Update the existing ERP system with advanced Order Workflow.
+
+Do not rebuild existing modules.
+Modify and connect the current workflow only.
+
+New Order Classification:
+
+When a new order is created:
+
+Automatically classify order type:
+
+1. Production Order
+- Product requires manufacturing
+
+2. Stock Order
+- Product available in inventory
+
+
+Production Order Workflow:
+
+Orders
+↓
+Preparation
+↓
+Workshop Assignment
+↓
+Cutting
+↓
+Sewing
+↓
+Embroidery
+↓
+Quality Control
+↓
+Packaging
+↓
+Shipping
+↓
+Completed
+
+
+System automatically creates:
+- Production task
+- Production record
+- Link with Order ID
+- Production timeline
+
+
+Stock Order Workflow:
+
+Orders
+↓
+Preparation
+↓
+Print Preparation Card
+↓
+Packaging
+↓
+Shipping
+↓
+Completed
+
+
+No workshop or manufacturing steps required.
+
+
+Update Orders Module:
+
+Add:
+- Order Type field
+- Production / Stock badge
+- Production status
+- Current stage
+- Progress percentage
+- Production timeline
+
+
+Update Preparation Module:
+
+Add filters:
+- New Orders
+- Production Orders
+- Stock Orders
+- Ready for Printing
+- Ready for Packaging
+
+Actions:
+- Confirm preparation
+- Print preparation card
+- Send to production
+- Send to embroidery
+
+
+Preparation Card:
+
+Include:
+- Order Number
+- Product Image
+- Product Name
+- SKU
+- Size
+- Color
+- Quantity
+- Pieces Count
+- Embroidery Details
+- Production Notes
+- QR Code
+
+Hide:
+- Customer name
+- Phone
+- Address
+- Payment information
+
+
+Update QR Scanner:
+
+After scanning:
+Show production information only.
+
+Allow:
+- Update status
+- Move to next stage
+- View production history
+
+
+Update Embroidery:
+
+When order reaches embroidery:
+Move automatically to embroidery queue.
+
+Actions:
+- Scan QR
+- Pending
+- In Progress
+- Completed
+
+
+Update Packaging:
+
+After quality approval:
+Move automatically to packaging queue.
+
+Show:
+- Order number
+- Product image
+- Quantity
+- Quality status
+
+
+Dashboard Updates:
+
+Add:
+- New Orders
+- Production Orders
+- Stock Orders
+- Orders at Workshops
+- Embroidery Pending
+- Ready for Packaging
+- Ready for Shipping
+- Delayed Orders
+
+
+Permissions:
+
+Production employees:
+Can see:
+- Product image
+- Product details
+- Size
+- Color
+- Quantity
+- Production notes
+
+Hide:
+- Customer information
+- Sales information
+
+
+Keep existing database and UI.
+Use real existing data.
+Improve current ERP workflow.
