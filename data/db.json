@@ -268,7 +268,7 @@
       "customer_name": "أم سلطان",
       "customer_phone": "0504445555",
       "city": "الرياض",
-      "status": "جاهز للتغليف",
+      "status": "تم التغليف",
       "assigned_employee": "موظف الإنتاج",
       "items": [
         {
@@ -285,9 +285,9 @@
         }
       ],
       "notes": "",
-      "shipment_number": "",
+      "shipment_number": "AR1234567890",
       "created_at": "2026-07-02T08:00:00.000Z",
-      "updated_at": "2026-07-08T10:00:00.000Z"
+      "updated_at": "2026-07-10T17:31:56.716Z"
     },
     {
       "id": "ord-1011",
@@ -463,6 +463,27 @@
   ],
   "activity_logs": [
     {
+      "id": "log_f98a8206ff04",
+      "user_id": "u1",
+      "action": "إنشاء شحنة",
+      "details": "LMS-1010 → أرامكس · AR1234567890",
+      "at": "2026-07-10T17:31:56.716Z"
+    },
+    {
+      "id": "log_c05e13d266bd",
+      "user_id": "u1",
+      "action": "إتمام التغليف",
+      "details": "LMS-1010",
+      "at": "2026-07-10T17:31:56.668Z"
+    },
+    {
+      "id": "log_bc503d384cf2",
+      "user_id": "u1",
+      "action": "بدء التغليف",
+      "details": "LMS-1010",
+      "at": "2026-07-10T17:31:56.619Z"
+    },
+    {
       "id": "log_2d74ff965be5",
       "user_id": "u1",
       "action": "تغيير حالة طلب",
@@ -531,6 +552,37 @@
       "action": "تغيير حالة طلب",
       "ref": "LMS-1011 -> تم التنفيذ",
       "timestamp": "2026-07-07T14:00:00.000Z"
+    }
+  ],
+  "packages": [
+    {
+      "id": "pkg_bc50adb7afd7",
+      "order_id": "ord-1010",
+      "order_number": "LMS-1010",
+      "status": "تم التغليف",
+      "started_at": "2026-07-10T17:31:56.619Z",
+      "completed_at": "2026-07-10T17:31:56.667Z",
+      "confirmed_at": "2026-07-10T17:31:56.667Z",
+      "pieces_count": 1,
+      "notes": "",
+      "packed_by": "u1",
+      "created_at": "2026-07-10T17:31:56.619Z"
+    }
+  ],
+  "shipments": [
+    {
+      "id": "shp_f584d075c7e6",
+      "order_id": "ord-1010",
+      "order_number": "LMS-1010",
+      "shipping_company": "أرامكس",
+      "tracking_number": "AR1234567890",
+      "status": "جاهز للشحن",
+      "notes": "شحن تجريبي",
+      "shipped_at": null,
+      "delivered_at": null,
+      "failed_at": null,
+      "created_by": "u1",
+      "created_at": "2026-07-10T17:31:56.716Z"
     }
   ]
 }

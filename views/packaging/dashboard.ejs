@@ -1,0 +1,279 @@
+<%- include('../partials/head', {title: 'التغليف والشحن'}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --teal:#0d9488; --blue:#3b82f6; }
+
+/* KPI */
+.pkg-kpi { background:#fff; border-radius:14px; padding:16px 18px; box-shadow:0 2px 10px rgba(0,0,0,.06); border-top:4px solid var(--navy); height:100%; }
+.pkg-kpi.kpi-green  { border-top-color:var(--green); }
+.pkg-kpi.kpi-gold   { border-top-color:var(--gold); }
+.pkg-kpi.kpi-blue   { border-top-color:var(--blue); }
+.pkg-kpi.kpi-teal   { border-top-color:var(--teal); }
+.pkg-kpi .kn { font-size:2rem; font-weight:900; line-height:1; color:var(--navy); }
+.pkg-kpi .kl { font-size:.8rem; color:#888; margin-top:3px; }
+
+/* Section header */
+.sec-hd { font-weight:800; font-size:.95rem; color:var(--navy); padding:14px 0 10px; display:flex; align-items:center; gap:7px; }
+.sec-hd .badge { font-size:.72rem; }
+
+/* Packaging queue cards */
+.pkg-card {
+  background:#fff; border-radius:16px; box-shadow:0 2px 12px rgba(0,0,0,.07);
+  margin-bottom:14px; overflow:hidden; border-right:4px solid var(--gold);
+  transition:box-shadow .15s;
+}
+.pkg-card:hover { box-shadow:0 4px 20px rgba(0,0,0,.12); }
+.pkg-card.status-في-التغليف { border-right-color:var(--blue); }
+.pkg-card.status-تم-التغليف  { border-right-color:var(--teal); }
+.pkg-card-hd {
+  padding:12px 16px; background:#f8fafc; border-bottom:1px solid #eef0f4;
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.pkg-ord-num { font-family:monospace; font-weight:900; font-size:.95rem; color:var(--navy); }
+.pkg-days { font-size:.72rem; color:#888; }
+.items-strip {
+  padding:12px 16px; display:flex; gap:10px; overflow-x:auto;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.items-strip::-webkit-scrollbar { display:none; }
+.item-chip {
+  display:flex; align-items:center; gap:8px; background:#f8fafc;
+  border:1.5px solid #e8ecf4; border-radius:10px; padding:8px 10px;
+  min-width:160px; flex-shrink:0;
+}
+.item-chip-img {
+  width:40px; height:40px; border-radius:8px; object-fit:cover;
+  background:#f0f4ff; flex-shrink:0;
+}
+.item-chip-placeholder {
+  width:40px; height:40px; border-radius:8px; background:linear-gradient(135deg,#1a2d4a,#2d4a6e);
+  display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0;
+}
+.item-chip-info { flex:1; min-width:0; }
+.chip-name { font-weight:700; font-size:.78rem; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chip-meta { font-size:.7rem; color:#888; margin-top:1px; white-space:nowrap; }
+.chip-qty  { font-size:.72rem; font-weight:700; color:var(--green); }
+.pkg-card-ft {
+  padding:10px 16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+  border-top:1px solid #f0f0f0;
+}
+.btn-pkg-action {
+  padding:9px 18px; border-radius:10px; border:none; font-family:'Tajawal',sans-serif;
+  font-weight:700; font-size:.85rem; cursor:pointer; transition:all .15s; flex:1; min-width:120px;
+}
+.btn-pkg-start    { background:linear-gradient(135deg,var(--navy),#2d4a6e); color:#fff; }
+.btn-pkg-complete { background:linear-gradient(135deg,var(--green),#059669); color:#fff; }
+.btn-pkg-ship     { background:linear-gradient(135deg,var(--teal),#0f766e); color:#fff; }
+.btn-pkg-action:hover { opacity:.9; }
+
+/* Status badges for new statuses */
+.bg-teal { background-color:var(--teal) !important; }
+
+/* Shipment cards */
+.shp-card {
+  background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06);
+  padding:14px 16px; margin-bottom:10px; display:flex; gap:14px; align-items:flex-start;
+  border-right:4px solid var(--blue);
+}
+.shp-card.delivered { border-right-color:var(--green); opacity:.8; }
+.shp-card.failed    { border-right-color:var(--red); }
+.shp-icon { width:42px; height:42px; border-radius:10px; background:#eff6ff; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
+.shp-body { flex:1; min-width:0; }
+.shp-company { font-weight:800; font-size:.9rem; color:var(--navy); }
+.shp-track { font-family:monospace; font-size:.82rem; color:#555; direction:ltr; }
+.shp-meta  { font-size:.75rem; color:#888; margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+.shp-actions { display:flex; flex-direction:column; gap:6px; }
+
+/* Filter strip */
+.filter-strip {
+  background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:16px;
+  box-shadow:0 1px 4px rgba(0,0,0,.06); display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+}
+
+/* Empty state */
+.empty-state { text-align:center; padding:40px 20px; color:#aaa; font-size:.9rem; }
+.empty-state .empty-icon { font-size:3rem; margin-bottom:10px; }
+
+@media (max-width:576px) {
+  .pkg-kpi .kn { font-size:1.6rem; }
+  .items-strip { padding:10px 12px; }
+}
+</style>
+
+<!-- Page header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="page-title mb-0">📦 التغليف والشحن</h1>
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/packaging/scan" class="btn btn-sm" style="background:var(--navy);color:#fff;font-weight:700;">🔬 مسح QR</a>
+    <a href="/packaging" class="btn btn-sm btn-outline-secondary">🔄 تحديث</a>
+  </div>
+</div>
+
+<!-- KPI cards -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="pkg-kpi kpi-gold">
+      <div class="kn"><%= kpi.readyForPkg %></div>
+      <div class="kl">📥 جاهز للتغليف</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="pkg-kpi kpi-blue">
+      <div class="kn"><%= kpi.inPackaging %></div>
+      <div class="kl">🔄 في التغليف</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="pkg-kpi kpi-teal">
+      <div class="kn"><%= kpi.shippedToday %></div>
+      <div class="kl">🚚 شُحن اليوم</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="pkg-kpi kpi-green">
+      <div class="kn"><%= kpi.delivered %></div>
+      <div class="kl">✅ تم التسليم</div>
+    </div>
+  </div>
+</div>
+
+<!-- Packaging Queue -->
+<div class="sec-hd">
+  📋 طابور التغليف
+  <span class="badge bg-warning text-dark"><%= queueOrders.length %></span>
+</div>
+
+<% if (!queueOrders.length) { %>
+<div class="empty-state" style="background:#fff;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:20px;">
+  <div class="empty-icon">✅</div>
+  لا توجد طلبات في طابور التغليف حالياً<br>
+  <small>الطلبات المعتمدة من مراقبة الجودة ستظهر هنا</small>
+</div>
+<% } %>
+
+<% queueOrders.forEach(function(o) {
+  var statusClass = o.status === 'في التغليف' ? 'status-في-التغليف' : (o.status === 'تم التغليف' ? 'status-تم-التغليف' : '');
+  var pkg = o.pkg;
+%>
+<div class="pkg-card <%= statusClass %>">
+  <div class="pkg-card-hd">
+    <span class="pkg-ord-num"><%= o.order_number %></span>
+    <span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %><%= o.status==='تم التغليف'?' bg-teal':'' %>"><%= o.status %></span>
+    <% if (o.late) { %><span class="badge bg-warning text-dark">⏰ متأخر</span><% } %>
+    <span class="pkg-days ms-auto"><%= o.daysSince %> يوم</span>
+    <a href="/packaging/order/<%= o.id %>" class="btn btn-xs btn-outline-primary ms-1" style="font-size:.72rem;padding:2px 8px;">تفاصيل</a>
+  </div>
+
+  <!-- Items strip -->
+  <div class="items-strip">
+    <% o.enrichedItems.forEach(function(it) { %>
+    <div class="item-chip">
+      <% if (it.image_url && /^https?:\/\//i.test(it.image_url)) { %>
+        <img class="item-chip-img" src="<%= it.image_url %>" alt="<%= it.product_name %>" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="item-chip-placeholder" style="display:none">👗</div>
+      <% } else { %>
+        <div class="item-chip-placeholder">👗</div>
+      <% } %>
+      <div class="item-chip-info">
+        <div class="chip-name"><%= it.product_name %></div>
+        <div class="chip-meta">
+          <% if (it.size) { %><%= it.size %><% } %>
+          <% if (it.color) { %> · <%= it.color %><% } %>
+        </div>
+        <div class="chip-qty">× <%= it.qty %> قطعة</div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+
+  <!-- Actions -->
+  <div class="pkg-card-ft">
+    <div class="d-flex align-items-center gap-2 text-muted" style="font-size:.78rem;">
+      <span>📦 <%= o.totalQty %> قطعة</span>
+      <% if (pkg && pkg.notes) { %><span>· 📝 <%= pkg.notes.substring(0,30) %></span><% } %>
+    </div>
+    <div class="d-flex gap-2 ms-auto flex-wrap" style="flex:1;justify-content:flex-end;">
+      <% if (o.status === 'جاهز للتغليف') { %>
+      <form method="POST" action="/packaging/order/<%= o.id %>/start">
+        <button type="submit" class="btn-pkg-action btn-pkg-start">▶ بدء التغليف</button>
+      </form>
+      <% } else if (o.status === 'في التغليف') { %>
+      <form method="POST" action="/packaging/order/<%= o.id %>/complete">
+        <button type="submit" class="btn-pkg-action btn-pkg-complete">✓ إتمام التغليف</button>
+      </form>
+      <% } else if (o.status === 'تم التغليف') { %>
+      <a href="/packaging/order/<%= o.id %>?tab=shipping" class="btn-pkg-action btn-pkg-ship" style="text-decoration:none;text-align:center;">🚚 إنشاء شحنة</a>
+      <% } %>
+    </div>
+  </div>
+</div>
+<% }) %>
+
+<!-- Active Shipments -->
+<% if (activeShipments.length) { %>
+<div class="sec-hd mt-2">
+  🚚 الشحنات النشطة
+  <span class="badge bg-primary"><%= activeShipments.length %></span>
+</div>
+
+<% activeShipments.forEach(function(s) {
+  var cls = s.status === 'تم التسليم' ? 'delivered' : (s.status === 'فشل التسليم' ? 'failed' : '');
+%>
+<div class="shp-card <%= cls %>">
+  <div class="shp-icon">🚚</div>
+  <div class="shp-body">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="shp-company"><%= s.shipping_company %></span>
+      <span class="badge bg-<%= s.status==='تم التسليم'?'success':(s.status==='تم الشحن'?'primary':'secondary') %>"><%= s.status %></span>
+    </div>
+    <% if (s.tracking_number) { %>
+    <div class="shp-track" dir="ltr">🔍 <%= s.tracking_number %></div>
+    <% } %>
+    <div class="shp-meta">
+      <a href="/packaging/order/<%= s.order_id %>" style="font-weight:800;color:var(--navy);font-family:monospace"><%= s.order_number %></a>
+      <% if (s.shipped_at) { %><span>· شُحن <%= new Date(s.shipped_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></span><% } %>
+      <% if (s.notes) { %><span>· <%= s.notes.substring(0,40) %></span><% } %>
+    </div>
+  </div>
+  <div class="shp-actions">
+    <a href="/packaging/order/<%= s.order_id %>?tab=shipping" class="btn btn-sm btn-outline-primary" style="font-size:.75rem;white-space:nowrap;">إدارة</a>
+  </div>
+</div>
+<% }) %>
+<% } %>
+
+<!-- Recently completed -->
+<% if (recentDone.length) { %>
+<div class="sec-hd mt-2">
+  ✅ منجزة مؤخراً
+  <span class="badge bg-success"><%= recentDone.length %></span>
+</div>
+<div class="table-responsive" style="background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);margin-bottom:20px;">
+  <table class="table table-sm mb-0" style="font-size:.85rem;">
+    <thead style="background:#f8fafc;">
+      <tr>
+        <th>رقم الطلب</th>
+        <th>الحالة</th>
+        <th>القطع</th>
+        <th>شركة الشحن</th>
+        <th>التاريخ</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% recentDone.forEach(function(o) { %>
+      <tr>
+        <td><a href="/packaging/order/<%= o.id %>" style="font-weight:800;font-family:monospace;color:var(--navy)"><%= o.order_number %></a></td>
+        <td><span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %>"><%= o.status %></span></td>
+        <td><%= o.totalQty %> ق</td>
+        <td><%= o.latestShipment ? o.latestShipment.shipping_company : '—' %></td>
+        <td style="font-size:.78rem;color:#888;"><%= new Date(o.updated_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></td>
+        <td><a href="/packaging/order/<%= o.id %>" class="btn btn-xs btn-outline-secondary" style="font-size:.72rem;padding:2px 8px;">عرض</a></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>

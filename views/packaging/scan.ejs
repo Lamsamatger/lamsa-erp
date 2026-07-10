@@ -1,0 +1,170 @@
+<%- include('../partials/head', {title: 'مسح QR — التغليف'}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; }
+
+.scan-hero {
+  background:linear-gradient(135deg,var(--navy) 0%,#2d4a6e 100%);
+  border-radius:18px; padding:22px 18px 18px; margin-bottom:16px; color:#fff;
+}
+.scan-title  { font-size:1.15rem; font-weight:900; margin-bottom:4px; }
+.scan-sub    { font-size:.82rem; opacity:.75; margin-bottom:16px; }
+
+/* Camera area */
+#reader-wrap { border-radius:14px; overflow:hidden; background:#000; }
+#reader { border-radius:14px !important; overflow:hidden; }
+#reader video { border-radius:14px !important; }
+#reader__scan_region img { display:none; }
+
+.cam-btn {
+  width:100%; padding:14px; border-radius:13px; border:none; margin-top:10px;
+  background:rgba(255,255,255,.15); color:#fff; font-size:.95rem; font-weight:700;
+  font-family:'Tajawal',sans-serif; cursor:pointer; transition:background .15s;
+}
+.cam-btn:hover { background:rgba(255,255,255,.25); }
+.cam-btn.stop { background:rgba(239,68,68,.3); }
+
+/* Manual input */
+.manual-wrap { background:rgba(255,255,255,.1); border-radius:12px; padding:12px 14px; margin-top:12px; }
+.manual-label { font-size:.78rem; opacity:.8; margin-bottom:6px; }
+.manual-row { display:flex; gap:8px; }
+.manual-input {
+  flex:1; background:rgba(255,255,255,.9); border:none; border-radius:9px;
+  padding:10px 12px; font-family:'Tajawal',sans-serif; font-size:.95rem;
+  font-weight:600; color:#1a2d4a; direction:ltr;
+}
+.manual-go {
+  padding:10px 18px; border-radius:9px; border:none;
+  background:var(--gold); color:var(--navy); font-weight:800;
+  font-family:'Tajawal',sans-serif; font-size:.9rem; cursor:pointer;
+  white-space:nowrap;
+}
+
+/* Sample chips */
+.chip-label  { font-size:.75rem; opacity:.7; margin-bottom:8px; margin-top:12px; }
+.chips-row   { display:flex; gap:6px; flex-wrap:wrap; }
+.barcode-chip {
+  background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.3);
+  border-radius:8px; padding:6px 12px; font-family:monospace; font-size:.78rem;
+  color:#fff; cursor:pointer; transition:background .15s; text-decoration:none;
+  display:inline-block;
+}
+.barcode-chip:hover { background:rgba(255,255,255,.28); color:#fff; }
+
+/* Error banner */
+.scan-error {
+  background:#fef2f2; border:1.5px solid #fca5a5; border-radius:12px;
+  padding:12px 14px; color:#991b1b; font-size:.88rem; margin-bottom:12px;
+  display:flex; align-items:center; gap:8px;
+}
+
+/* Info cards */
+.info-card { background:#fff; border-radius:14px; padding:14px 16px; box-shadow:0 2px 10px rgba(0,0,0,.07); margin-bottom:12px; }
+.info-card-title { font-weight:800; font-size:.88rem; color:var(--navy); margin-bottom:8px; }
+.info-row-sm { display:flex; justify-content:space-between; align-items:center; padding:5px 0; border-bottom:1px solid #f5f5f5; font-size:.83rem; }
+.info-row-sm:last-child { border-bottom:none; }
+</style>
+
+<% if (typeof error !== 'undefined' && error) { %>
+<div class="scan-error">
+  ⚠️ لم يُعثر على طلب للباركود: <strong style="font-family:monospace;direction:ltr"><%= error %></strong>
+</div>
+<% } %>
+
+<div class="scan-hero">
+  <div class="scan-title">📦 ماسح التغليف والشحن</div>
+  <div class="scan-sub">امسح باركود قطعة للوصول لبيانات التغليف والشحن</div>
+
+  <!-- Camera reader -->
+  <div id="reader-wrap">
+    <div id="reader"></div>
+  </div>
+
+  <button class="cam-btn" id="cam-btn" onclick="startCam()">📷 تشغيل الكاميرا</button>
+
+  <!-- Manual entry -->
+  <div class="manual-wrap">
+    <div class="manual-label">أو أدخل الباركود يدوياً:</div>
+    <div class="manual-row">
+      <input type="text" class="manual-input" id="manual-bc" placeholder="LMS-1007-1"
+        inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="manual-go" onclick="goManual()">فتح ←</button>
+    </div>
+  </div>
+
+  <!-- Sample barcodes -->
+  <% if (sampleBarcodes && sampleBarcodes.length) { %>
+  <div class="chip-label">طلبات في طابور التغليف:</div>
+  <div class="chips-row">
+    <% sampleBarcodes.forEach(function(s) { %>
+    <a href="/packaging/scan/item/<%= encodeURIComponent(s.barcode) %>" class="barcode-chip" title="<%= s.order_number %> · <%= s.barcode %>">
+      <%= s.order_number %>
+    </a>
+    <% }) %>
+  </div>
+  <% } else { %>
+  <div class="chip-label" style="opacity:.55;">لا توجد طلبات في طابور التغليف حالياً</div>
+  <% } %>
+</div>
+
+<!-- Guide cards -->
+<div class="info-card">
+  <div class="info-card-title">📋 كيفية الاستخدام</div>
+  <div class="info-row-sm"><span>1. افتح الكاميرا</span><span>📷</span></div>
+  <div class="info-row-sm"><span>2. وجّه الكاميرا على QR الموجود على بطاقة القطعة</span><span>🔬</span></div>
+  <div class="info-row-sm"><span>3. سيفتح تلقائياً بيانات التغليف والشحن</span><span>📦</span></div>
+  <div class="info-row-sm"><span>4. قم بتحديث حالة التغليف أو الشحن</span><span>✅</span></div>
+</div>
+
+<a href="/packaging" class="btn btn-outline-secondary w-100 mb-3" style="border-radius:12px;padding:12px;font-weight:700;">
+  ← العودة للوحة التغليف
+</a>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let scanner = null;
+
+function startCam() {
+  const btn = document.getElementById('cam-btn');
+  if (scanner) {
+    scanner.stop().then(() => {
+      scanner = null;
+      btn.textContent = '📷 تشغيل الكاميرا';
+      btn.classList.remove('stop');
+    });
+    return;
+  }
+  btn.textContent = '⏹ إيقاف الكاميرا';
+  btn.classList.add('stop');
+
+  scanner = new Html5Qrcode('reader');
+  scanner.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 240, height: 240 } },
+    (text) => {
+      scanner.stop().then(() => {
+        scanner = null;
+        // Navigate to packaging order
+        window.location.href = '/packaging/scan/item/' + encodeURIComponent(text.trim());
+      });
+    },
+    () => {}
+  ).catch(() => {
+    btn.textContent = '📷 تشغيل الكاميرا';
+    btn.classList.remove('stop');
+    alert('تعذّر الوصول للكاميرا. تأكد من منح الصلاحية أو استخدم الإدخال اليدوي.');
+  });
+}
+
+function goManual() {
+  const val = document.getElementById('manual-bc').value.trim();
+  if (!val) return;
+  window.location.href = '/packaging/scan/item/' + encodeURIComponent(val);
+}
+
+document.getElementById('manual-bc').addEventListener('keydown', e => {
+  if (e.key === 'Enter') goManual();
+});
+</script>
+
+<%- include('../partials/foot') %>

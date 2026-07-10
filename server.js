@@ -39,7 +39,7 @@ function daysBetween(iso) {
 }
 
 function isLate(order) {
-  if (['جاهز للتغليف', 'تم التنفيذ', 'ملغي'].includes(order.status)) return false;
+  if (['جاهز للتغليف','في التغليف','تم التغليف','تم الشحن','تم التنفيذ','ملغي'].includes(order.status)) return false;
   return daysBetween(order.created_at) > DELAY_DAYS_THRESHOLD;
 }
 
@@ -912,6 +912,316 @@ app.post('/production/error/:errorId/resolve', requireAuth, requireSection('prod
   log(db, req.session.user.id, 'حل خطأ إنتاجي', `${err.order_number} — ${err.error_type}`);
   save(db);
   res.redirect('/production/order/' + err.order_id + '?tab=errors');
+});
+
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// PACKAGING & SHIPPING MODULE
+// ═══════════════════════════════════════════════════════
+
+const SHIPPING_STATUSES = ['جاهز للشحن','تم الشحن','تم التسليم','فشل التسليم'];
+
+// ── Dashboard ────────────────────────────────────────
+app.get('/packaging', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.packages  = db.packages  || [];
+  db.shipments = db.shipments || [];
+
+  const today = new Date().toISOString().slice(0, 10);
+  const productMap = {};
+  db.products.forEach(p => { productMap[p.id] = p; });
+  const shipmentMap = {};
+  db.shipments.forEach(s => { shipmentMap[s.order_id] = s; });
+  const pkgMap = {};
+  db.packages.forEach(p => { pkgMap[p.order_id] = p; });
+
+  // KPIs
+  const readyForPkg = db.orders.filter(o => o.status === 'جاهز للتغليف').length;
+  const inPackaging = db.orders.filter(o => o.status === 'في التغليف').length;
+  const shippedToday = db.shipments.filter(s =>
+    s.status === 'تم الشحن' && (s.shipped_at || s.created_at || '').slice(0,10) === today
+  ).length;
+  const delivered = db.shipments.filter(s => s.status === 'تم التسليم').length;
+
+  // Packaging queue: جاهز للتغليف + في التغليف + تم التغليف
+  const queueStatuses = ['جاهز للتغليف','في التغليف','تم التغليف'];
+  const queueOrders = db.orders
+    .filter(o => queueStatuses.includes(o.status))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .map(o => {
+      const totalQty = o.items.reduce((s, i) => s + i.qty, 0);
+      return {
+        ...o,
+        late: isLate(o),
+        daysSince: daysBetween(o.created_at),
+        totalQty,
+        pkg: pkgMap[o.id] || null,
+        enrichedItems: o.items.map(it => ({
+          ...it,
+          image_url: (productMap[it.product_id] && productMap[it.product_id].image_url) || ''
+        }))
+      };
+    });
+
+  // Active shipments
+  const activeShipments = db.shipments
+    .filter(s => !['تم التسليم','فشل التسليم'].includes(s.status))
+    .slice(-20)
+    .map(s => ({ ...s, order_number: s.order_number || '' }));
+
+  // Recent completed (تم التنفيذ, ordered by updated_at desc, last 10)
+  const recentDone = db.orders
+    .filter(o => ['تم التنفيذ','تم الشحن'].includes(o.status))
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+    .slice(0, 10)
+    .map(o => ({
+      ...o,
+      totalQty: o.items.reduce((s, i) => s + i.qty, 0),
+      latestShipment: db.shipments.filter(s => s.order_id === o.id).slice(-1)[0] || null
+    }));
+
+  res.render('packaging/dashboard', {
+    title: 'التغليف والشحن',
+    kpi: { readyForPkg, inPackaging, shippedToday, delivered },
+    queueOrders,
+    activeShipments,
+    recentDone,
+    STATUS_COLORS
+  });
+});
+
+// ── Order packaging + shipping detail ────────────────
+app.get('/packaging/order/:id', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.packages  = db.packages  || [];
+  db.shipments = db.shipments || [];
+
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  const productMap = {};
+  db.products.forEach(p => { productMap[p.id] = p; });
+  const items = order.items.map(it => ({
+    ...it,
+    image_url: (productMap[it.product_id] && productMap[it.product_id].image_url) || ''
+  }));
+
+  const pkg       = db.packages.filter(p => p.order_id === order.id).slice(-1)[0] || null;
+  const shipments = db.shipments.filter(s => s.order_id === order.id);
+
+  // Activity logs for this order
+  const userMap = {};
+  db.users.forEach(u => { userMap[u.id] = u; });
+  const logs = db.activity_logs
+    .filter(l => l.details && l.details.includes(order.order_number))
+    .slice(0, 50)
+    .map(l => {
+      const u = userMap[l.user_id];
+      return { ...l, user_name: u ? u.name : 'غير معروف', user_role: u ? (ROLES[u.role] || '') : '' };
+    });
+
+  res.render('packaging/order', {
+    title: 'تغليف — ' + order.order_number,
+    tab:   req.query.tab || 'packaging',
+    order,
+    items,
+    totalQty: items.reduce((s, i) => s + i.qty, 0),
+    pkg,
+    shipments,
+    logs,
+    late:      isLate(order),
+    daysSince: daysBetween(order.created_at),
+    STATUS_COLORS,
+    SHIPPING_STATUSES
+  });
+});
+
+// ── Start packaging ───────────────────────────────────
+app.post('/packaging/order/:id/start', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.packages = db.packages || [];
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  // Create or update package record
+  let pkg = db.packages.find(p => p.order_id === order.id);
+  if (!pkg) {
+    pkg = {
+      id: newId('pkg'), order_id: order.id, order_number: order.order_number,
+      status: 'في التغليف', started_at: new Date().toISOString(),
+      completed_at: null, confirmed_at: null, pieces_count: order.items.reduce((s, i) => s + i.qty, 0),
+      notes: '', packed_by: req.session.user.id, created_at: new Date().toISOString()
+    };
+    db.packages.push(pkg);
+  } else {
+    pkg.status = 'في التغليف';
+    pkg.started_at = pkg.started_at || new Date().toISOString();
+    pkg.packed_by  = req.session.user.id;
+  }
+
+  order.status     = 'في التغليف';
+  order.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'بدء التغليف', order.order_number);
+  save(db);
+  res.redirect('/packaging/order/' + order.id + '?tab=packaging');
+});
+
+// ── Complete packaging ────────────────────────────────
+app.post('/packaging/order/:id/complete', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.packages = db.packages || [];
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  let pkg = db.packages.find(p => p.order_id === order.id);
+  if (!pkg) {
+    pkg = {
+      id: newId('pkg'), order_id: order.id, order_number: order.order_number,
+      status: 'تم التغليف', started_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(), confirmed_at: new Date().toISOString(),
+      pieces_count: order.items.reduce((s, i) => s + i.qty, 0),
+      notes: '', packed_by: req.session.user.id, created_at: new Date().toISOString()
+    };
+    db.packages.push(pkg);
+  } else {
+    pkg.status       = 'تم التغليف';
+    pkg.completed_at = new Date().toISOString();
+    pkg.confirmed_at = new Date().toISOString();
+  }
+
+  order.status     = 'تم التغليف';
+  order.updated_at = new Date().toISOString();
+  log(db, req.session.user.id, 'إتمام التغليف', order.order_number);
+  save(db);
+  res.redirect('/packaging/order/' + order.id + '?tab=packaging');
+});
+
+// ── Update packaging notes ────────────────────────────
+app.post('/packaging/order/:id/notes', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.packages = db.packages || [];
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  let pkg = db.packages.find(p => p.order_id === order.id);
+  if (!pkg) {
+    pkg = {
+      id: newId('pkg'), order_id: order.id, order_number: order.order_number,
+      status: 'في انتظار التغليف', started_at: null, completed_at: null,
+      pieces_count: order.items.reduce((s, i) => s + i.qty, 0),
+      notes: '', packed_by: req.session.user.id, created_at: new Date().toISOString()
+    };
+    db.packages.push(pkg);
+  }
+  pkg.notes = (req.body.notes || '').trim().substring(0, 500);
+  log(db, req.session.user.id, 'ملاحظات تغليف', order.order_number);
+  save(db);
+  res.redirect('/packaging/order/' + order.id + '?tab=packaging');
+});
+
+// ── Create shipment ───────────────────────────────────
+app.post('/packaging/order/:id/shipment', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.shipments = db.shipments || [];
+  const order = db.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).render('error', { message: 'الطلب غير موجود' });
+
+  const { shipping_company, tracking_number, notes } = req.body;
+  const initStatus = (req.body.status || 'جاهز للشحن').trim();
+  const safeStatus = SHIPPING_STATUSES.includes(initStatus) ? initStatus : 'جاهز للشحن';
+
+  if (!shipping_company) return res.redirect('/packaging/order/' + order.id + '?tab=shipping&err=company');
+
+  const shipment = {
+    id: newId('shp'),
+    order_id:         order.id,
+    order_number:     order.order_number,
+    shipping_company: shipping_company.trim(),
+    tracking_number:  (tracking_number || '').trim(),
+    status:           safeStatus,
+    notes:            (notes || '').trim(),
+    shipped_at:       safeStatus === 'تم الشحن' ? new Date().toISOString() : null,
+    delivered_at:     null,
+    failed_at:        null,
+    created_by:       req.session.user.id,
+    created_at:       new Date().toISOString()
+  };
+  db.shipments.push(shipment);
+
+  // Advance order status
+  const newOrderStatus = safeStatus === 'تم الشحن' ? 'تم الشحن' : 'تم التغليف';
+  if (ORDER_STATUSES.includes(newOrderStatus)) {
+    order.status = newOrderStatus;
+  }
+  // Also store tracking number on the order for backward compatibility
+  if (tracking_number) order.shipment_number = tracking_number.trim();
+  order.updated_at = new Date().toISOString();
+
+  log(db, req.session.user.id, 'إنشاء شحنة',
+    `${order.order_number} → ${shipping_company}${tracking_number ? ' · ' + tracking_number : ''}`);
+  save(db);
+  res.redirect('/packaging/order/' + order.id + '?tab=shipping');
+});
+
+// ── Update shipment status ────────────────────────────
+app.post('/packaging/shipment/:shpId/status', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  db.shipments = db.shipments || [];
+  const shipment = db.shipments.find(s => s.id === req.params.shpId);
+  if (!shipment) return res.status(404).render('error', { message: 'الشحنة غير موجودة' });
+
+  const newStatus = (req.body.status || '').trim();
+  if (!SHIPPING_STATUSES.includes(newStatus))
+    return res.status(400).render('error', { message: 'حالة شحن غير معروفة' });
+
+  shipment.status = newStatus;
+  if (newStatus === 'تم الشحن')    shipment.shipped_at   = shipment.shipped_at   || new Date().toISOString();
+  if (newStatus === 'تم التسليم')  shipment.delivered_at = new Date().toISOString();
+  if (newStatus === 'فشل التسليم') shipment.failed_at    = new Date().toISOString();
+
+  // Sync order status
+  const order = db.orders.find(o => o.id === shipment.order_id);
+  if (order) {
+    if (newStatus === 'تم التسليم')  order.status = 'تم التنفيذ';
+    else if (newStatus === 'تم الشحن') order.status = 'تم الشحن';
+    else if (newStatus === 'فشل التسليم') order.status = 'تم الشحن'; // stays shipped, retry
+    order.updated_at = new Date().toISOString();
+    log(db, req.session.user.id, 'تحديث حالة الشحنة',
+      `${order.order_number} → ${newStatus}`);
+  }
+  save(db);
+  const returnTo = order ? '/packaging/order/' + order.id + '?tab=shipping' : '/packaging';
+  res.redirect(returnTo);
+});
+
+// ── QR Scanner for packaging ──────────────────────────
+app.get('/packaging/scan', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  // Collect sample barcodes from packaging-queue orders
+  const sampleBarcodes = [];
+  for (const o of db.orders) {
+    if (!['جاهز للتغليف','في التغليف','تم التغليف'].includes(o.status)) continue;
+    for (const it of o.items) {
+      if (sampleBarcodes.length >= 6) break;
+      sampleBarcodes.push({ barcode: it.barcode, order_id: o.id, order_number: o.order_number });
+    }
+    if (sampleBarcodes.length >= 6) break;
+  }
+  res.render('packaging/scan', { sampleBarcodes, error: req.query.error || null });
+});
+
+// ── Barcode → packaging order redirect ───────────────
+app.get('/packaging/scan/item/:barcode', requireAuth, requireSection('packaging'), (req, res) => {
+  const db = load();
+  const barcode = decodeSafeBarcode(req.params.barcode);
+  if (!barcode) return res.redirect('/packaging/scan?error=' + encodeURIComponent('باركود غير صالح'));
+
+  let foundOrder = null;
+  for (const o of db.orders) {
+    if (o.items.find(it => it.barcode === barcode)) { foundOrder = o; break; }
+  }
+  if (!foundOrder) return res.redirect('/packaging/scan?error=' + encodeURIComponent(barcode));
+  res.redirect('/packaging/order/' + foundOrder.id);
 });
 
 // ═══════════════════════════════════════════════════════

@@ -74,6 +74,7 @@ body { font-family: 'Tajawal', sans-serif; background: #f4f6f9; }
 /* ===== BADGES ===== */
 .badge-status { font-size: .78rem; }
 .bg-purple { background-color: #7c3aed !important; }
+.bg-teal   { background-color: #0d9488 !important; }
 
 /* ===== LATE ROWS ===== */
 .late-row { background: #fff8e1 !important; }

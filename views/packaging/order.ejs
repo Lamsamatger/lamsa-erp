@@ -1,0 +1,400 @@
+<%- include('../partials/head', {title: 'تغليف — ' + order.order_number}) %>
+
+<style>
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --teal:#0d9488; --blue:#3b82f6; }
+
+/* Topbar */
+.pkg-topbar { background:var(--navy); color:#fff; border-radius:14px; margin-bottom:16px; padding:13px 16px; display:flex; align-items:center; gap:10px; }
+.pkg-topbar .back-btn { background:rgba(255,255,255,.12); border:none; border-radius:9px; width:38px; height:38px; color:#fff; display:flex; align-items:center; justify-content:center; text-decoration:none; font-size:1rem; flex-shrink:0; }
+.pkg-topbar .back-btn:hover { background:rgba(255,255,255,.22); }
+.pkg-topbar .ord-num { font-family:monospace; font-weight:900; font-size:1.05rem; flex:1; }
+.st-badge { padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; }
+
+/* Summary card */
+.summary-card { background:#fff; border-radius:16px; padding:16px 18px; box-shadow:0 2px 12px rgba(0,0,0,.07); margin-bottom:16px; }
+.sum-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:0; margin-top:10px; }
+.ss { text-align:center; padding:8px; border-left:1px solid #f0f0f0; }
+.ss:last-child { border-left:none; }
+.ss-n { font-size:1.4rem; font-weight:900; color:var(--navy); line-height:1; }
+.ss-l { font-size:.68rem; color:#888; margin-top:2px; }
+
+/* Tabs */
+.pkg-tabs { display:flex; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:16px; }
+.pkg-tab { flex:1; padding:13px 8px; text-align:center; text-decoration:none; color:#666; font-size:.82rem; font-weight:700; border-bottom:3px solid transparent; transition:all .15s; white-space:nowrap; }
+.pkg-tab:hover { color:var(--navy); background:#f8fafc; }
+.pkg-tab.active { color:var(--navy); border-bottom-color:var(--gold); background:#fffbf0; }
+.pkg-tab .ti { font-size:1.1rem; display:block; margin-bottom:2px; }
+
+/* Section cards */
+.sec-card { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:14px; overflow:hidden; }
+.sec-hd { padding:12px 16px; background:#f8fafc; border-bottom:1px solid #eef0f4; font-weight:800; font-size:.88rem; color:var(--navy); display:flex; align-items:center; gap:7px; }
+.sec-bd { padding:16px; }
+
+/* Items list */
+.item-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #f5f5f5; }
+.item-row:last-child { border-bottom:none; }
+.item-img { width:56px; height:56px; border-radius:10px; object-fit:cover; background:#f4f6f9; flex-shrink:0; }
+.item-img-ph { width:56px; height:56px; border-radius:10px; background:linear-gradient(135deg,var(--navy),#2d4a6e); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
+.item-info { flex:1; min-width:0; }
+.item-name { font-weight:800; font-size:.92rem; color:var(--navy); }
+.item-meta { font-size:.75rem; color:#888; margin-top:2px; }
+.item-barcode { font-size:.7rem; font-family:monospace; color:#aaa; direction:ltr; }
+.item-qty { font-size:1.1rem; font-weight:900; color:var(--green); white-space:nowrap; }
+
+/* Packaging status track */
+.pkg-track { display:flex; gap:0; padding:16px; overflow-x:auto; scrollbar-width:none; }
+.pkg-track::-webkit-scrollbar { display:none; }
+.pt-step { display:flex; flex-direction:column; align-items:center; min-width:80px; text-align:center; position:relative; }
+.pt-step:not(:last-child)::after { content:''; position:absolute; top:16px; right:-20px; width:40px; height:2px; background:#e5e7eb; }
+.pt-step:not(:last-child).done::after { background:var(--green); }
+.pt-step:not(:last-child).current::after { background:linear-gradient(90deg,var(--gold),#e5e7eb); }
+.pt-dot { width:32px; height:32px; border-radius:50%; border:2.5px solid #d1d5db; background:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; margin-bottom:5px; flex-shrink:0; }
+.pt-step.done .pt-dot    { background:var(--green); border-color:var(--green); color:#fff; }
+.pt-step.current .pt-dot { background:var(--gold); border-color:var(--gold); color:#fff; box-shadow:0 0 0 4px rgba(201,162,75,.2); }
+.pt-lbl { font-size:.63rem; color:#888; line-height:1.2; }
+.pt-step.done .pt-lbl    { color:var(--green); font-weight:700; }
+.pt-step.current .pt-lbl { color:var(--gold); font-weight:800; }
+
+/* Action buttons */
+.btn-pkg-main { width:100%; padding:15px; border-radius:13px; border:none; font-family:'Tajawal',sans-serif; font-size:1rem; font-weight:800; cursor:pointer; margin-bottom:10px; transition:opacity .15s; }
+.btn-pkg-main:hover { opacity:.9; }
+.btn-start    { background:linear-gradient(135deg,var(--navy),#2d4a6e); color:#fff; box-shadow:0 4px 14px rgba(26,45,74,.25); }
+.btn-complete { background:linear-gradient(135deg,var(--green),#059669); color:#fff; box-shadow:0 4px 14px rgba(16,185,129,.25); }
+.btn-done     { background:#6b7280; color:#fff; cursor:default; }
+.btn-scan-link { background:linear-gradient(135deg,var(--navy),#2d4a6e); color:#fff; border-radius:12px; padding:12px 20px; text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:700; font-size:.9rem; margin-bottom:10px; }
+.btn-scan-link:hover { opacity:.9; color:#fff; }
+
+/* Notes form */
+.notes-form { background:#f8fafc; border-radius:12px; border:1.5px solid #e0e8f4; padding:14px; margin-top:12px; }
+.notes-form h6 { font-weight:700; font-size:.85rem; color:var(--navy); margin-bottom:10px; }
+
+/* Shipment cards */
+.shp-detail-card { border-radius:14px; border:2px solid; padding:16px; margin-bottom:12px; }
+.shp-detail-card.active    { border-color:var(--blue); background:#eff6ff; }
+.shp-detail-card.delivered { border-color:var(--green); background:#f0fdf4; }
+.shp-detail-card.failed    { border-color:var(--red); background:#fff5f5; }
+.shp-detail-card.pending   { border-color:#e5e7eb; background:#f8fafc; }
+.shp-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:12px; }
+.shp-company-name { font-weight:900; font-size:1rem; color:var(--navy); }
+.shp-track-num { font-family:monospace; font-size:.9rem; color:#555; direction:ltr; margin-top:2px; }
+.shp-status-btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+.btn-shp { padding:10px; border-radius:10px; border:1.5px solid; font-family:'Tajawal',sans-serif; font-weight:700; font-size:.8rem; cursor:pointer; text-align:center; transition:all .15s; }
+.btn-shp.btn-ship     { border-color:var(--blue); color:var(--blue); background:transparent; }
+.btn-shp.btn-deliver  { border-color:var(--green); color:var(--green); background:transparent; }
+.btn-shp.btn-fail     { border-color:var(--red); color:var(--red); background:transparent; }
+.btn-shp.btn-active   { color:#fff; }
+.btn-shp.btn-ship:hover    { background:var(--blue); color:#fff; }
+.btn-shp.btn-deliver:hover { background:var(--green); color:#fff; }
+.btn-shp.btn-fail:hover    { background:var(--red); color:#fff; }
+.btn-shp:disabled { opacity:.4; cursor:default; }
+
+/* Create shipment form */
+.create-shp-form { background:#f8fafc; border-radius:14px; border:1.5px solid #e0e8f4; padding:16px; }
+.create-shp-form h6 { font-weight:800; font-size:.9rem; color:var(--navy); margin-bottom:14px; }
+
+/* Log */
+.log-item { padding:11px 16px; border-bottom:1px solid #f5f5f5; display:flex; gap:10px; }
+.log-item:last-child { border-bottom:none; }
+.log-av { width:33px; height:33px; border-radius:50%; background:linear-gradient(135deg,var(--navy),#2d4a6e); color:var(--gold); font-size:.88rem; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.log-body { flex:1; min-width:0; }
+.log-act { font-weight:700; font-size:.82rem; color:var(--navy); }
+.log-det { font-size:.75rem; color:#666; margin-top:1px; }
+.log-met { font-size:.68rem; color:#aaa; margin-top:3px; }
+
+.bg-teal { background-color:var(--teal) !important; }
+
+@media (max-width:576px) {
+  .sum-stats { grid-template-columns:1fr 1fr; }
+  .ss:nth-child(2) { border-left:none; }
+}
+</style>
+
+<%
+var PKG_STAGES = ['جاهز للتغليف','في التغليف','تم التغليف','تم الشحن','تم التنفيذ'];
+var curStageIdx = PKG_STAGES.indexOf(order.status);
+var activeTab = tab || 'packaging';
+var openShipment = shipments.find(function(s){ return s.status === 'تم الشحن'; });
+%>
+
+<!-- Topbar -->
+<div class="pkg-topbar">
+  <a href="/packaging" class="back-btn" title="العودة">←</a>
+  <div class="ord-num"><%= order.order_number %></div>
+  <% if (late) { %><span style="background:#fef3c7;color:#92400e;border-radius:20px;font-size:.72rem;font-weight:700;padding:3px 10px;">⏰ <%= daysSince %> يوم</span><% } %>
+  <span class="st-badge bg-<%= STATUS_COLORS[order.status]||'secondary' %><%= order.status==='تم التغليف'||order.status==='تم الشحن'?' bg-teal':'' %>"><%= order.status %></span>
+</div>
+
+<!-- Summary -->
+<div class="summary-card">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div style="font-weight:800;color:var(--navy);font-size:1rem;">ملخص الطلب</div>
+    <div class="d-flex gap-2">
+      <a href="/orders/<%= order.id %>" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;">📋 الطلب</a>
+      <a href="/production/order/<%= order.id %>" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem;">⚙️ الإنتاج</a>
+      <a href="/packaging/scan" class="btn btn-sm" style="background:var(--navy);color:#fff;font-size:.75rem;font-weight:700;">🔬 مسح</a>
+    </div>
+  </div>
+  <div class="sum-stats">
+    <div class="ss">
+      <div class="ss-n"><%= totalQty %></div>
+      <div class="ss-l">📦 إجمالي القطع</div>
+    </div>
+    <div class="ss">
+      <div class="ss-n" style="color:var(--teal)"><%= shipments.length %></div>
+      <div class="ss-l">🚚 شحنات</div>
+    </div>
+    <div class="ss">
+      <div class="ss-n" style="color:var(--blue)"><%= daysSince %></div>
+      <div class="ss-l">⏱ أيام</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="pkg-tabs">
+  <a href="?tab=packaging" class="pkg-tab <%= activeTab==='packaging'?'active':'' %>"><span class="ti">📦</span>التغليف</a>
+  <a href="?tab=shipping"  class="pkg-tab <%= activeTab==='shipping'?'active':'' %>">
+    <span class="ti">🚚</span>الشحن
+    <% if (openShipment) { %><span class="badge bg-primary ms-1" style="font-size:.6rem;">1</span><% } %>
+  </a>
+  <a href="?tab=log"       class="pkg-tab <%= activeTab==='log'?'active':'' %>"><span class="ti">📜</span>السجل</a>
+</div>
+
+
+<!-- ══════════════════════════════════ -->
+<!-- TAB: PACKAGING                    -->
+<!-- ══════════════════════════════════ -->
+<% if (activeTab === 'packaging') { %>
+
+<!-- Packaging progress track -->
+<div class="sec-card">
+  <div class="sec-hd">📊 مسار التغليف والشحن</div>
+  <div class="pkg-track">
+    <% PKG_STAGES.forEach(function(s, i) {
+      var cls = i < curStageIdx ? 'done' : (i === curStageIdx ? 'current' : '');
+      var icon = i < curStageIdx ? '✓' : (i === curStageIdx ? '●' : (i+1));
+    %>
+    <div class="pt-step <%= cls %>">
+      <div class="pt-dot"><%= icon %></div>
+      <div class="pt-lbl"><%= s %></div>
+    </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Packaging actions -->
+<div class="sec-card">
+  <div class="sec-hd">⚡ إجراءات التغليف</div>
+  <div class="sec-bd">
+    <% if (order.status === 'جاهز للتغليف') { %>
+    <form method="POST" action="/packaging/order/<%= order.id %>/start">
+      <button type="submit" class="btn-pkg-main btn-start">▶ بدء التغليف</button>
+    </form>
+    <% } else if (order.status === 'في التغليف') { %>
+    <form method="POST" action="/packaging/order/<%= order.id %>/complete">
+      <button type="submit" class="btn-pkg-main btn-complete">✓ إتمام التغليف — تأكيد الجاهزية</button>
+    </form>
+    <% } else if (['تم التغليف','تم الشحن','تم التنفيذ'].includes(order.status)) { %>
+    <div class="btn-pkg-main btn-done" style="cursor:default;text-align:center;">
+      ✅ تم التغليف بنجاح
+      <% if (pkg && pkg.completed_at) { %><br><small style="font-size:.75rem;opacity:.8;"><%= new Date(pkg.completed_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %></small><% } %>
+    </div>
+    <% } else { %>
+    <div style="text-align:center;color:#888;padding:16px;font-size:.88rem;">
+      هذا الطلب ليس في مرحلة التغليف حالياً.<br>
+      <span style="font-size:.8rem;">الحالة الحالية: <%= order.status %></span>
+    </div>
+    <% } %>
+
+    <!-- Scanner link -->
+    <a href="/packaging/scan" class="btn-scan-link">
+      🔬 <span>مسح QR لتحديث التغليف</span>
+    </a>
+
+    <!-- Package info -->
+    <% if (pkg) { %>
+    <div style="background:#f0fdf4;border-radius:10px;padding:12px;border:1.5px solid #bbf7d0;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:.85rem;color:#065f46;margin-bottom:6px;">📋 بيانات التغليف</div>
+      <div class="d-flex gap-4 flex-wrap" style="font-size:.8rem;color:#555;">
+        <span>الحالة: <strong><%= pkg.status %></strong></span>
+        <% if (pkg.started_at) { %><span>📤 بدأ: <%= new Date(pkg.started_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></span><% } %>
+        <% if (pkg.completed_at) { %><span>✅ أُتم: <%= new Date(pkg.completed_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short'}) %></span><% } %>
+        <% if (pkg.notes) { %><span>📝 <%= pkg.notes %></span><% } %>
+      </div>
+    </div>
+    <% } %>
+
+    <!-- Notes form -->
+    <div class="notes-form">
+      <h6>📝 ملاحظات التغليف</h6>
+      <form method="POST" action="/packaging/order/<%= order.id %>/notes">
+        <div class="d-flex gap-2">
+          <input type="text" name="notes" class="form-control" placeholder="أضف ملاحظة على التغليف…"
+            value="<%= pkg && pkg.notes ? pkg.notes : '' %>">
+          <button type="submit" class="btn btn-brand" style="white-space:nowrap;">حفظ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Items list -->
+<div class="sec-card">
+  <div class="sec-hd">🗂️ قطع الطلب (<%= items.length %> نوع · <%= totalQty %> قطعة)</div>
+  <div class="sec-bd p-0">
+    <div style="padding:0 16px;">
+      <% items.forEach(function(it) { %>
+      <div class="item-row">
+        <% if (it.image_url && /^https?:\/\//i.test(it.image_url)) { %>
+          <img class="item-img" src="<%= it.image_url %>" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="item-img-ph" style="display:none">👗</div>
+        <% } else { %>
+          <div class="item-img-ph">👗</div>
+        <% } %>
+        <div class="item-info">
+          <div class="item-name"><%= it.product_name %></div>
+          <div class="item-meta">
+            <% if (it.size) { %><%= it.size %><% } %>
+            <% if (it.color) { %> · <%= it.color %><% } %>
+            <% if (it.embroidery_name) { %> · 🧵 <%= it.embroidery_name %><% } %>
+          </div>
+          <div class="item-barcode" dir="ltr"><%= it.barcode %></div>
+        </div>
+        <div class="item-qty">× <%= it.qty %></div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<% } /* end packaging tab */ %>
+
+
+<!-- ══════════════════════════════════ -->
+<!-- TAB: SHIPPING                     -->
+<!-- ══════════════════════════════════ -->
+<% if (activeTab === 'shipping') { %>
+
+<!-- Active/past shipments -->
+<% if (shipments.length) { %>
+<div class="sec-card">
+  <div class="sec-hd">📋 سجل الشحنات</div>
+  <div class="sec-bd">
+    <% shipments.slice().reverse().forEach(function(s) {
+      var cls = s.status==='تم التسليم'?'delivered':(s.status==='فشل التسليم'?'failed':(s.status==='تم الشحن'?'active':'pending'));
+    %>
+    <div class="shp-detail-card <%= cls %>">
+      <div class="shp-header">
+        <div>
+          <div class="shp-company-name">🚚 <%= s.shipping_company %></div>
+          <% if (s.tracking_number) { %><div class="shp-track-num">🔍 <%= s.tracking_number %></div><% } %>
+        </div>
+        <span class="badge bg-<%= s.status==='تم التسليم'?'success':(s.status==='تم الشحن'?'primary':(s.status==='فشل التسليم'?'danger':'secondary')) %>"><%= s.status %></span>
+      </div>
+      <div class="d-flex gap-4 flex-wrap" style="font-size:.78rem;color:#555;">
+        <% if (s.shipped_at) { %><span>📤 <%= new Date(s.shipped_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %></span><% } %>
+        <% if (s.delivered_at) { %><span>✅ <%= new Date(s.delivered_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %></span><% } %>
+        <% if (s.failed_at) { %><span>❌ <%= new Date(s.failed_at).toLocaleDateString('ar-SA',{calendar:'gregory',day:'numeric',month:'short',year:'numeric'}) %></span><% } %>
+        <% if (s.notes) { %><span>📝 <%= s.notes %></span><% } %>
+      </div>
+      <% if (!['تم التسليم','فشل التسليم'].includes(s.status)) { %>
+      <div class="shp-status-btns">
+        <% if (s.status !== 'تم الشحن') { %>
+        <form method="POST" action="/packaging/shipment/<%= s.id %>/status">
+          <input type="hidden" name="status" value="تم الشحن">
+          <button type="submit" class="btn-shp btn-ship w-100">🚚 تم الشحن</button>
+        </form>
+        <% } %>
+        <form method="POST" action="/packaging/shipment/<%= s.id %>/status">
+          <input type="hidden" name="status" value="تم التسليم">
+          <button type="submit" class="btn-shp btn-deliver w-100">✅ تم التسليم</button>
+        </form>
+        <form method="POST" action="/packaging/shipment/<%= s.id %>/status">
+          <input type="hidden" name="status" value="فشل التسليم">
+          <button type="submit" class="btn-shp btn-fail w-100">❌ فشل التسليم</button>
+        </form>
+      </div>
+      <% } %>
+    </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<!-- Create new shipment -->
+<% if (['تم التغليف','تم الشحن','جاهز للتغليف','في التغليف'].includes(order.status) || !shipments.length) { %>
+<div class="sec-card">
+  <div class="sec-hd">🆕 إنشاء شحنة جديدة</div>
+  <div class="sec-bd">
+    <% if (!['تم التغليف','تم الشحن','تم التنفيذ'].includes(order.status) && order.status !== 'جاهز للتغليف') { %>
+    <div class="alert alert-warning" style="font-size:.85rem;border-radius:10px;">
+      ⚠️ الطلب لم يكتمل التغليف بعد. يمكنك إنشاء شحنة لكن يُفضَّل إتمام التغليف أولاً.
+    </div>
+    <% } %>
+    <form method="POST" action="/packaging/order/<%= order.id %>/shipment">
+      <div class="mb-3">
+        <label class="form-label fw-bold" style="font-size:.82rem;">شركة الشحن <span class="text-danger">*</span></label>
+        <select name="shipping_company" class="form-select" required>
+          <option value="">— اختر شركة الشحن —</option>
+          <% ['أرامكس','DHL','فيدكس','سمسا','زاجل','إمبوست','ناقل','أخرى'].forEach(function(c){ %>
+          <option value="<%= c %>"><%= c %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-bold" style="font-size:.82rem;">رقم التتبع</label>
+        <input type="text" name="tracking_number" class="form-control" placeholder="أدخل رقم التتبع..." dir="ltr">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-bold" style="font-size:.82rem;">حالة الشحنة الابتدائية</label>
+        <select name="status" class="form-select">
+          <option value="جاهز للشحن">جاهز للشحن</option>
+          <option value="تم الشحن">تم الشحن</option>
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-bold" style="font-size:.82rem;">ملاحظات</label>
+        <textarea name="notes" class="form-control" rows="2" placeholder="ملاحظات الشحن…"></textarea>
+      </div>
+      <button type="submit" class="btn btn-brand w-100">إنشاء الشحنة 🚚</button>
+    </form>
+  </div>
+</div>
+<% } %>
+
+<% } /* end shipping tab */ %>
+
+
+<!-- ══════════════════════════════════ -->
+<!-- TAB: LOG                          -->
+<!-- ══════════════════════════════════ -->
+<% if (activeTab === 'log') { %>
+<div class="sec-card">
+  <div class="sec-hd">📜 سجل النشاط</div>
+  <div>
+    <% if (!logs.length) { %>
+    <div style="text-align:center;padding:32px;color:#aaa;font-size:.88rem;">
+      <div style="font-size:2rem;margin-bottom:8px">📭</div>لا يوجد سجل بعد
+    </div>
+    <% } else { %>
+    <% logs.forEach(function(l) { %>
+    <div class="log-item">
+      <div class="log-av"><%= l.user_name ? l.user_name.charAt(0) : '؟' %></div>
+      <div class="log-body">
+        <div class="log-act"><%= l.action %></div>
+        <% if (l.details) { %><div class="log-det"><%= l.details %></div><% } %>
+        <div class="log-met">
+          👤 <%= l.user_name||'غير معروف' %>
+          <% if (l.user_role) { %> · <%= l.user_role %><% } %>
+          · 🕐 <%= new Date(l.at).toLocaleDateString('ar-SA',{calendar:'gregory',year:'numeric',month:'short',day:'numeric'}) %>
+          &nbsp;<%= new Date(l.at).toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'}) %>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+    <% } %>
+  </div>
+</div>
+<% } %>
+
+<%- include('../partials/foot') %>
