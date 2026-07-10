@@ -1,6 +1,52 @@
 <%- include('../partials/head', {title: 'المطرزين'}) %>
 <h4 class="page-title">المطرزين</h4>
 
+<% if (pendingJobs.length > 0) { %>
+<div class="bg-white rounded shadow-sm mb-4 p-3">
+  <h5 class="mb-3">
+    طلبات بانتظار تعيين مطرز
+    <span class="badge bg-danger ms-2"><%= pendingJobs.length %></span>
+  </h5>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>رقم الطلب</th>
+          <th>العميل</th>
+          <th>الكمية</th>
+          <th>تاريخ الإضافة</th>
+          <th>تعيين مطرز</th>
+        </tr>
+      </thead>
+      <tbody>
+      <% pendingJobs.forEach(function(job){ %>
+        <tr>
+          <td>
+            <a href="/orders/<%= job.order_id %>" class="fw-bold text-decoration-none"><%= job.order_number %></a>
+          </td>
+          <td class="text-muted small"><%= job.customer_name || '—' %></td>
+          <td><%= job.received_qty %></td>
+          <td class="text-muted small"><%= new Date(job.created_at).toLocaleDateString('ar-SA') %></td>
+          <td>
+            <form method="POST" action="/embroiderers/assign-pending" class="d-flex gap-2 align-items-center">
+              <input type="hidden" name="job_id" value="<%= job.id %>">
+              <select name="embroiderer_id" class="form-select form-select-sm" style="min-width:160px" required>
+                <option value="">اختر مطرزاً…</option>
+                <% embroiderers.forEach(function(e){ %>
+                  <option value="<%= e.id %>"><%= e.name %></option>
+                <% }) %>
+              </select>
+              <button class="btn btn-sm btn-brand">تعيين</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
 <div class="row g-3 mb-4">
 <% embroiderers.forEach(function(e){ %>
   <div class="col-md-4">

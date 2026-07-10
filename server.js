@@ -2061,7 +2061,37 @@ app.get('/embroiderers', requireAuth, requireSection('embroiderers'), (req, res)
     const totalErrors = jobs.reduce((s, j) => s + (j.errors || 0), 0);
     return { ...e, jobsCount: jobs.length, totalDone, totalErrors };
   });
-  res.render('embroiderers/list', { embroiderers: withStats });
+  // Pending jobs: auto-queued with no embroiderer assigned yet
+  const pendingJobs = (db.embroidery_jobs || [])
+    .filter(j => !j.embroiderer_id)
+    .map(j => {
+      const order = (db.orders || []).find(o => o.id === j.order_id);
+      return {
+        ...j,
+        order_number:   order ? order.order_number : (j.order_number || '—'),
+        order_id:       j.order_id,
+        customer_name:  order ? (order.customer_name || '') : '',
+        received_qty:   j.received_qty || 0,
+      };
+    })
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  res.render('embroiderers/list', { embroiderers: withStats, pendingJobs });
+});
+
+app.post('/embroiderers/assign-pending', requireAuth, requireSection('embroiderers'), (req, res) => {
+  const db = load();
+  const { job_id, embroiderer_id } = req.body;
+  const job = db.embroidery_jobs.find(j => j.id === job_id && !j.embroiderer_id);
+  if (!job) return res.status(404).render('error', { message: 'المهمة غير موجودة أو تم تعيينها مسبقاً' });
+  const embroiderer = db.embroiderers.find(e => e.id === embroiderer_id);
+  if (!embroiderer) return res.status(404).render('error', { message: 'المطرز غير موجود' });
+  job.embroiderer_id = embroiderer_id;
+  job.assigned_at = new Date().toISOString();
+  const order = (db.orders || []).find(o => o.id === job.order_id);
+  log(db, req.session.user.id, 'تعيين مطرز', `${order ? order.order_number : job.order_id} → ${embroiderer.name}`,
+    { module: 'embroiderers', type: 'update' });
+  save(db);
+  res.redirect('/embroiderers');
 });
 
 app.post('/embroiderers/new', requireAuth, requireSection('embroiderers'), (req, res) => {
