@@ -2215,15 +2215,19 @@ app.post('/api/webhook/salla', (req, res) => {
         };
       });
 
+      const finalItems = items.length ? items : [{ id: newId('item'), product_id: '', product_name: 'منتج من سلة (راجع تفاصيل الطلب في سلة)', size: '', color: '', embroidery_name: '', notes: '', qty: 1, barcode: order_number + '-1', stage: 'تجهيز' }];
+      const orderType = classifyOrder(finalItems, db.inventory_items || []);
+
       const order = {
         id: newId('ord'),
         order_number,
+        order_type: orderType,
         customer_name: (payload.customer && (payload.customer.first_name ? (payload.customer.first_name + ' ' + (payload.customer.last_name || '')) : payload.customer.name)) || '',
         customer_phone: (payload.customer && payload.customer.mobile) || '',
         city: (payload.shipping && payload.shipping.address && payload.shipping.address.city) || (payload.ship_to && payload.ship_to.city) || '',
         status: 'جديد',
         assigned_employee: '',
-        items: items.length ? items : [{ id: newId('item'), product_id: '', product_name: 'منتج من سلة (راجع تفاصيل الطلب في سلة)', size: '', color: '', embroidery_name: '', notes: '', qty: 1, barcode: order_number + '-1', stage: 'تجهيز' }],
+        items: finalItems,
         notes: 'مستورد تلقائياً من سلة (رقم الطلب في سلة: ' + (payload.reference_id || payload.id || '—') + ')',
         shipment_number: '',
         salla_order_id: payload.id || payload.reference_id || null,
@@ -2231,7 +2235,7 @@ app.post('/api/webhook/salla', (req, res) => {
         updated_at: new Date().toISOString()
       };
       db.orders.push(order);
-      log(db, null, 'استيراد طلب من سلة', order_number);
+      log(db, null, 'استيراد طلب من سلة', order_number + ' (' + orderType + ')');
       save(db);
     } else if (event === 'order.status.updated' || event === 'order.cancelled') {
       const sallaId = payload.id || payload.reference_id;
