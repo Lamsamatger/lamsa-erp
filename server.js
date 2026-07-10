@@ -33,17 +33,43 @@ app.use(session({
 
 // ---------- classifyOrder helper ----------
 /**
- * Returns 'مخزون' if every order item has enough qty in inventory_items, else 'إنتاج'.
+ * Returns 'مخزون' if every order item has enough variant-matched qty in
+ * inventory_items, else 'إنتاج'.
+ *
+ * Matching priority (most-specific first):
+ *   1. product_id + size + color  (exact variant)
+ *   2. product_id + size          (same product, same size, any color)
+ *   3. product_id only            (same product, any variant)
+ *
+ * The name-contains fallback is intentionally removed — it caused false
+ * stock matches when an unrelated variant happened to share a word.
  */
 function classifyOrder(orderItems, inventoryItems) {
   if (!inventoryItems || inventoryItems.length === 0) return 'إنتاج';
   for (const oi of orderItems) {
-    const matched = inventoryItems.filter(inv =>
-      inv.product_id === oi.product_id ||
-      (inv.name && oi.product_name && inv.name.includes(oi.product_name))
+    const pid   = oi.product_id;
+    const size  = (oi.size  || '').trim().toLowerCase();
+    const color = (oi.color || '').trim().toLowerCase();
+    const need  = Number(oi.qty) || 1;
+
+    // Try most-specific match first, then progressively broader
+    let candidates = inventoryItems.filter(inv =>
+      inv.product_id === pid &&
+      (inv.size  || '').trim().toLowerCase() === size &&
+      (inv.color || '').trim().toLowerCase() === color
     );
-    const availableQty = matched.reduce((s, inv) => s + (inv.qty || 0), 0);
-    if (availableQty < (oi.qty || 1)) return 'إنتاج';
+    if (!candidates.length && size) {
+      candidates = inventoryItems.filter(inv =>
+        inv.product_id === pid &&
+        (inv.size || '').trim().toLowerCase() === size
+      );
+    }
+    if (!candidates.length) {
+      candidates = inventoryItems.filter(inv => inv.product_id === pid);
+    }
+
+    const available = candidates.reduce((s, inv) => s + (Number(inv.qty) || 0), 0);
+    if (available < need) return 'إنتاج';
   }
   return 'مخزون';
 }
@@ -417,14 +443,14 @@ app.post('/orders/:id/status', requireAuth, requireSection('orders'), (req, res)
     { module: 'orders', type: 'status_change', after: newStatus });
   // Auto-queue embroidery job when entering عند المطرز
   if (newStatus === 'عند المطرز') {
-    const existingEmb = db.embroidery_jobs.find(j => j.order_id === order.id && !j.embroiderer_id);
+    const existingEmb = db.embroidery_jobs.find(j => j.order_id === order.id && j.auto_queued && !j.embroiderer_id);
     if (!existingEmb) {
       db.embroidery_jobs.push({
         id: newId('ejob'),
         order_id:       order.id,
         order_number:   order.order_number,
         embroiderer_id: null,
-        received_qty:   order.items.reduce((s, i) => s + i.qty, 0),
+        received_qty:   order.items.reduce((s, i) => s + (Number(i.qty) || 1), 0),
         done_qty: 0,
         errors:   0,
         notes:    '',
@@ -734,14 +760,14 @@ app.post('/scanner/order/:orderId/status', requireAuth, requireSection('scanner'
     { module: 'scanner', type: 'status_change', after: newStatus });
   // Auto-queue embroidery job when entering عند المطرز
   if (newStatus === 'عند المطرز') {
-    const existingEmb = db.embroidery_jobs.find(j => j.order_id === order.id && j.auto_queued);
+    const existingEmb = db.embroidery_jobs.find(j => j.order_id === order.id && j.auto_queued && !j.embroiderer_id);
     if (!existingEmb) {
       db.embroidery_jobs.push({
         id: newId('ejob'),
         order_id:       order.id,
         order_number:   order.order_number,
         embroiderer_id: null,
-        received_qty:   order.items.reduce((s, i) => s + i.qty, 0),
+        received_qty:   order.items.reduce((s, i) => s + (Number(i.qty) || 1), 0),
         done_qty: 0,
         errors:   0,
         notes:    '',
@@ -806,17 +832,25 @@ app.post('/scanner/order/:orderId/embroiderer', requireAuth, requireSection('sca
   const { embroiderer_id, barcode } = req.body;
   const embroiderer = db.embroiderers.find(e => e.id === embroiderer_id);
   if (embroiderer) {
-    const job = {
-      id: newId('ejob'),
-      order_id: order.id,
-      embroiderer_id,
-      received_qty: order.items.reduce((s, i) => s + i.qty, 0),
-      done_qty: 0,
-      errors: 0,
-      notes: '',
-      created_at: new Date().toISOString()
-    };
-    db.embroidery_jobs.push(job);
+    // Reuse auto-queued job if one exists; otherwise create a new one
+    const autoJob = db.embroidery_jobs.find(j => j.order_id === order.id && j.auto_queued && !j.embroiderer_id);
+    if (autoJob) {
+      autoJob.embroiderer_id = embroiderer_id;
+      autoJob.updated_at = new Date().toISOString();
+    } else {
+      db.embroidery_jobs.push({
+        id: newId('ejob'),
+        order_id: order.id,
+        order_number: order.order_number,
+        embroiderer_id,
+        received_qty: order.items.reduce((s, i) => s + (Number(i.qty) || 1), 0),
+        done_qty: 0,
+        errors: 0,
+        notes: '',
+        auto_queued: false,
+        created_at: new Date().toISOString()
+      });
+    }
     order.status = 'عند المطرز';
     order.updated_at = new Date().toISOString();
     log(db, req.session.user.id, 'تعيين مطرز', `${order.order_number} → ${embroiderer.name}`);
