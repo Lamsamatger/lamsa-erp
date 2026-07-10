@@ -501,6 +501,72 @@
   ],
   "activity_logs": [
     {
+      "id": "log_fe66900538dc",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:50:40.062Z"
+    },
+    {
+      "id": "log_02a6896a6b68",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:50:03.102Z"
+    },
+    {
+      "id": "log_968490cad49b",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:47:34.663Z"
+    },
+    {
+      "id": "log_8775d2bac28e",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:47:03.253Z"
+    },
+    {
+      "id": "log_a7986c5a9936",
+      "user_id": "u1",
+      "action": "تعديل إعدادات النظام",
+      "details": "قسم: notifications",
+      "module": "settings",
+      "action_type": "update",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:34:06.836Z"
+    },
+    {
+      "id": "log_2c690ec8ecb3",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T18:32:13.086Z"
+    },
+    {
       "id": "log_8b4b2d849b5a",
       "user_id": "u1",
       "action": "تسجيل دخول",

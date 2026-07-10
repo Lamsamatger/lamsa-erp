@@ -43,6 +43,25 @@ function isLate(order) {
   return daysBetween(order.created_at) > DELAY_DAYS_THRESHOLD;
 }
 
+// Settings cache — avoids a full DB load on every request just for hideCustomer
+let _settingsSecCache = null;
+let _settingsSecCacheAt = 0;
+const SETTINGS_CACHE_TTL = 30 * 1000; // 30 seconds
+
+function getCachedSecuritySettings() {
+  const now = Date.now();
+  if (_settingsSecCache === null || now - _settingsSecCacheAt > SETTINGS_CACHE_TTL) {
+    try {
+      const _db = load();
+      _settingsSecCache = _db.meta?.settings?.security || {};
+      _settingsSecCacheAt = now;
+    } catch (e) { _settingsSecCache = {}; }
+  }
+  return _settingsSecCache;
+}
+// Call this after saving settings to get fresh values immediately
+function invalidateSettingsCache() { _settingsSecCache = null; }
+
 app.use((req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.ROLES = ROLES;
@@ -53,13 +72,9 @@ app.use((req, res, next) => {
   const role = req.session.user?.role || '';
   const perms = ROLE_PERMISSIONS[role] || { view: true };
   res.locals.userCan = perms;
-  // hideCustomer: role must have hideCustomer AND system setting must be enabled
-  // Read system setting lazily (cheap flat-file read cached per-request)
-  let sysHide = true; // default on (safe)
-  try {
-    const _db = load();
-    sysHide = _db.meta?.settings?.security?.hideCustomerFromProduction !== false;
-  } catch (e) { /* ignore */ }
+  // hideCustomer: role capability AND system setting (30-second cached read)
+  const secSettings = getCachedSecuritySettings();
+  const sysHide = secSettings.hideCustomerFromProduction !== false;
   res.locals.hideCustomer = perms.hideCustomer === true && sysHide;
   next();
 });
@@ -109,21 +124,150 @@ app.post('/logout', (req, res) => {
 // ---------- DASHBOARD ----------
 app.get('/', requireAuth, requireSection('dashboard'), (req, res) => {
   const db = load();
+  const orders      = db.orders          || [];
+  const workshops   = db.workshops       || [];
+  const wsJobs      = db.workshop_jobs   || [];
+  const embJobs     = db.embroidery_jobs || [];
+  const inventory   = db.inventory_items || [];
+
+  // Progress % per order status
+  const STATUS_PROGRESS = {
+    'جديد': 5, 'مراجعة': 15, 'تجهيز': 25,
+    'عند المشغل': 40, 'مستلم من المشغل': 52,
+    'عند المطرز': 63, 'جاهز للتغليف': 72,
+    'في التغليف': 82, 'تم التغليف': 90,
+    'تم الشحن': 96, 'تم التنفيذ': 100, 'ملغي': 0
+  };
+
+  // Status counts
   const counts = {};
   ORDER_STATUSES.forEach(s => counts[s] = 0);
-  db.orders.forEach(o => counts[o.status] = (counts[o.status] || 0) + 1);
+  orders.forEach(o => counts[o.status] = (counts[o.status] || 0) + 1);
 
-  const late = db.orders.filter(isLate).map(o => ({
+  // KPI values
+  const activeOrders    = orders.filter(o => o.status !== 'ملغي');
+  const newOrders       = counts['جديد'] || 0;
+  const inProdStatuses  = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','في التغليف'];
+  const inProduction    = orders.filter(o => inProdStatuses.includes(o.status)).length;
+  const lateOrders      = orders.filter(isLate);
+  const readyToShip     = orders.filter(o => ['تم التغليف','تم الشحن'].includes(o.status)).length;
+  const completedOrders = counts['تم التنفيذ'] || 0;
+  const progressPct     = activeOrders.length === 0 ? 0 :
+    Math.round(activeOrders.reduce((s, o) => s + (STATUS_PROGRESS[o.status] || 0), 0) / activeOrders.length);
+
+  const today      = new Date().toISOString().slice(0, 10);
+  const thisMonth  = new Date().toISOString().slice(0, 7);
+  const doneToday  = orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at || '').slice(0, 10) === today).length;
+  const doneThisMonth = orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at || '').slice(0, 7) === thisMonth).length;
+
+  // Production pipeline funnel (6 stage groups)
+  const stageFunnel = [
+    { label: 'جديد',           icon: '🆕', statuses: ['جديد'],                                      color: '#6c757d' },
+    { label: 'مراجعة وتجهيز',  icon: '🗂️', statuses: ['مراجعة','تجهيز'],                             color: '#0d6efd' },
+    { label: 'المشغل',         icon: '✂️', statuses: ['عند المشغل','مستلم من المشغل'],               color: '#ffc107' },
+    { label: 'التطريز',        icon: '🧵', statuses: ['عند المطرز'],                                 color: '#7c3aed' },
+    { label: 'التغليف',        icon: '📦', statuses: ['جاهز للتغليف','في التغليف','تم التغليف'],     color: '#0d9488' },
+    { label: 'شحن وإنجاز',    icon: '✅', statuses: ['تم الشحن','تم التنفيذ'],                       color: '#198754' },
+  ];
+  const pipeTotal = activeOrders.length || 1;
+  stageFunnel.forEach(sf => {
+    sf.count = sf.statuses.reduce((s, st) => s + (counts[st] || 0), 0);
+    sf.pct   = Math.min(100, Math.round(sf.count / pipeTotal * 100));
+    sf.link  = '/orders?status=' + encodeURIComponent(sf.statuses[0]);
+  });
+
+  // Late orders detail
+  const late = lateOrders.map(o => ({
     ...o, days_late: daysBetween(o.created_at)
   })).sort((a, b) => b.days_late - a.days_late);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const doneToday = db.orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at || '').slice(0, 10) === today).length;
+  // Workshop performance (statuses: 'قيد الانتظار' | 'عند المشغل' | 'مستلم')
+  const wsPerf = workshops.filter(w => w.status === 'active').map(w => {
+    const jobs      = wsJobs.filter(j => j.workshop_id === w.id);
+    const activeJ   = jobs.filter(j => j.status === 'عند المشغل').length;
+    const waitingJ  = jobs.filter(j => j.status === 'قيد الانتظار').length;
+    const doneJ     = jobs.filter(j => j.status === 'مستلم').length;
+    return { id: w.id, name: w.name, activeJobs: activeJ, waitingJobs: waitingJ, doneJobs: doneJ, total: jobs.length };
+  });
 
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const doneThisMonth = db.orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at || '').slice(0, 7) === thisMonth).length;
+  // Embroidery performance
+  const embPerf = {
+    totalJobs:     embJobs.length,
+    totalReceived: embJobs.reduce((s, j) => s + (j.received_qty || 0), 0),
+    totalDone:     embJobs.reduce((s, j) => s + (j.done_qty     || 0), 0),
+    totalErrors:   embJobs.reduce((s, j) => s + (j.errors       || 0), 0),
+  };
+  embPerf.doneRate  = embPerf.totalReceived > 0 ? Math.round(embPerf.totalDone  / embPerf.totalReceived * 100) : 0;
+  embPerf.errorRate = embPerf.totalReceived > 0 ? Math.round(embPerf.totalErrors/ embPerf.totalReceived * 100) : 0;
 
-  res.render('dashboard', { counts, late, doneToday, doneThisMonth, totalOrders: db.orders.length });
+  // Low inventory alerts (qty <= low_stock_threshold)
+  const lowInventory = inventory
+    .filter(i => (i.qty || 0) <= (i.low_stock_threshold || 0))
+    .map(i => ({ ...i, deficit: Math.max(0, (i.low_stock_threshold || 0) - (i.qty || 0)) }));
+
+  // Recent orders (last 10)
+  const recentOrders = orders.slice()
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 10)
+    .map(o => ({
+      ...o,
+      progress:  STATUS_PROGRESS[o.status] || 0,
+      late:      isLate(o),
+      days_late: isLate(o) ? daysBetween(o.created_at) : 0,
+      totalQty:  (o.items || []).reduce((s, i) => s + (i.qty || 1), 0)
+    }));
+
+  // Chart data – daily (last 14 days)
+  const dailyData = [];
+  for (let d = 13; d >= 0; d--) {
+    const dt = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+    dailyData.push({
+      label: dt.slice(5),
+      count: orders.filter(o => (o.created_at || '').slice(0, 10) === dt).length,
+      done:  orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at || '').slice(0, 10) === dt).length
+    });
+  }
+
+  // Chart data – weekly (last 8 weeks)
+  const weeklyData = [];
+  for (let w = 7; w >= 0; w--) {
+    const wStart = new Date(Date.now() - w * 7 * 86400000);
+    const wEnd   = new Date(Date.now() - (w - 1) * 7 * 86400000);
+    weeklyData.push({
+      label: wStart.toISOString().slice(5, 10),
+      count: orders.filter(o => { const d = new Date(o.created_at || 0); return d >= wStart && d < wEnd; }).length,
+      done:  orders.filter(o => { const d = new Date(o.updated_at  || 0); return o.status === 'تم التنفيذ' && d >= wStart && d < wEnd; }).length
+    });
+  }
+
+  // Chart data – monthly (last 12 months)
+  const monthlyData = [];
+  for (let m = 11; m >= 0; m--) {
+    const dt = new Date(); dt.setMonth(dt.getMonth() - m);
+    const mKey = dt.toISOString().slice(0, 7);
+    monthlyData.push({
+      label: mKey.slice(5) + '/' + mKey.slice(2, 4),
+      count: orders.filter(o => (o.created_at || '').slice(0, 7) === mKey).length,
+      done:  orders.filter(o => o.status === 'تم التنفيذ' && (o.updated_at || '').slice(0, 7) === mKey).length
+    });
+  }
+
+  res.render('dashboard', {
+    // KPIs
+    totalOrders: orders.length, newOrders, inProduction,
+    lateCount: lateOrders.length, readyToShip, completedOrders, progressPct,
+    doneToday, doneThisMonth,
+    // Stage data
+    counts, stageFunnel,
+    // Detail lists
+    late, lowInventory, recentOrders,
+    // Performance
+    wsPerf, embPerf,
+    // Chart JSON strings (unescaped in template with <%-  %>)
+    chartDaily:   JSON.stringify(dailyData),
+    chartWeekly:  JSON.stringify(weeklyData),
+    chartMonthly: JSON.stringify(monthlyData),
+  });
 });
 
 // ---------- ORDERS ----------
@@ -2246,6 +2390,7 @@ app.post('/settings/system', requireAuth, requireSection('settings'), (req, res)
   log(db, req.session.user.id, 'تعديل إعدادات النظام',
     'قسم: ' + section, { module: 'settings', type: 'update' });
   save(db);
+  if (section === 'security') invalidateSettingsCache();
   res.redirect('/settings/system?tab=' + section + '&success=' + encodeURIComponent('تم حفظ الإعدادات'));
 });
 

@@ -1,55 +1,475 @@
 <%- include('partials/head', {title: 'لوحة التحكم'}) %>
-<h4 class="page-title">لوحة التحكم</h4>
 
-<div class="row g-3 mb-4">
-  <div class="col-6 col-md-3">
-    <div class="card-stat"><div class="num"><%= totalOrders %></div><div class="lbl">إجمالي الطلبات</div></div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-stat" style="border-color:#dc3545"><div class="num text-danger"><%= late.length %></div><div class="lbl">طلبات متأخرة</div></div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-stat" style="border-color:#198754"><div class="num text-success"><%= doneToday %></div><div class="lbl">تم تنفيذها اليوم</div></div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-stat" style="border-color:#c9a24b"><div class="num" style="color:#c9a24b"><%= doneThisMonth %></div><div class="lbl">تم تنفيذها هذا الشهر</div></div>
-  </div>
+<div class="dash-header d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+  <h4 class="page-title mb-0">📊 لوحة التحكم</h4>
+  <div class="dash-datetime text-muted small" id="dash-datetime"></div>
 </div>
 
-<h6 class="mb-3">الطلبات حسب الحالة</h6>
-<div class="row g-3 mb-4">
-  <% ORDER_STATUSES.forEach(function(s){ %>
-  <div class="col-6 col-md-3 col-lg-2">
-    <a href="/orders?status=<%= encodeURIComponent(s) %>" class="text-decoration-none">
-      <div class="card-stat text-center">
-        <div class="num" style="font-size:1.4rem"><%= counts[s] %></div>
-        <div class="lbl"><%= s %></div>
+<%# ════ KPI ROW 1 ════ %>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="/orders" class="text-decoration-none">
+      <div class="kpi-card">
+        <div class="kpi-icon" style="background:#eef0f5">📋</div>
+        <div class="kpi-body">
+          <div class="kpi-num"><%= totalOrders %></div>
+          <div class="kpi-lbl">إجمالي الطلبات</div>
+        </div>
       </div>
     </a>
   </div>
-  <% }) %>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="/orders?status=%D8%AC%D8%AF%D9%8A%D8%AF" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#0d6efd">
+        <div class="kpi-icon" style="background:#e8f0fd">🆕</div>
+        <div class="kpi-body">
+          <div class="kpi-num text-primary"><%= newOrders %></div>
+          <div class="kpi-lbl">طلبات جديدة</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="/production" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#e6a817">
+        <div class="kpi-icon" style="background:#fff8e1">⚙️</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#c48a00"><%= inProduction %></div>
+          <div class="kpi-lbl">في الإنتاج</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <div class="kpi-card" style="border-color:#dc3545<%= lateCount > 0 ? '' : ';opacity:.6' %>">
+      <div class="kpi-icon" style="background:#fde8e8">⏰</div>
+      <div class="kpi-body">
+        <div class="kpi-num text-danger"><%= lateCount %></div>
+        <div class="kpi-lbl">طلبات متأخرة</div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<% if (late.length) { %>
-<h6 class="mb-3 text-danger">⏰ طلبات متأخرة (أكثر من 4 أيام)</h6>
-<div class="table-responsive">
-  <table class="table table-sm table-hover bg-white rounded">
-    <thead><tr><th>رقم الطلب</th><th>العميل</th><th>المرحلة الحالية</th><th>عدد أيام التأخير</th><th></th></tr></thead>
-    <tbody>
-      <% late.forEach(function(o){ %>
-      <tr class="late-row">
-        <td><%= o.order_number %></td>
-        <td><%= o.customer_name %></td>
-        <td><span class="badge bg-<%= STATUS_COLORS[o.status] %> badge-status"><%= o.status %></span></td>
-        <td><strong class="text-danger"><%= o.days_late %> يوم</strong></td>
-        <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary">فتح</a></td>
-      </tr>
-      <% }) %>
-    </tbody>
-  </table>
+<%# ════ KPI ROW 2 ════ %>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="/packaging" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#0d9488">
+        <div class="kpi-icon" style="background:#e6f7f6">🚚</div>
+        <div class="kpi-body">
+          <div class="kpi-num" style="color:#0d9488"><%= readyToShip %></div>
+          <div class="kpi-lbl">جاهز للشحن</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="/orders?status=%D8%AA%D9%85+%D8%A7%D9%84%D8%AA%D9%86%D9%81%D9%8A%D8%B0" class="text-decoration-none">
+      <div class="kpi-card" style="border-color:#198754">
+        <div class="kpi-icon" style="background:#e6f4ed">✅</div>
+        <div class="kpi-body">
+          <div class="kpi-num text-success"><%= completedOrders %></div>
+          <div class="kpi-lbl">مكتملة</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <div class="kpi-card" style="border-color:#c9a24b">
+      <div class="kpi-icon" style="background:#fdf6e3">🌟</div>
+      <div class="kpi-body">
+        <div class="kpi-num" style="color:#c9a24b"><%= doneToday %></div>
+        <div class="kpi-lbl">تم تنفيذه اليوم</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-4 col-lg-3">
+    <div class="kpi-card" style="border-color:#7c3aed">
+      <div class="kpi-icon" style="background:#f3eeff">📈</div>
+      <div class="kpi-body">
+        <div class="kpi-num" style="color:#7c3aed"><%= progressPct %>%</div>
+        <div class="kpi-lbl">تقدم الإنتاج العام</div>
+        <div class="progress mt-1" style="height:4px;border-radius:2px">
+          <div class="progress-bar" style="width:<%=progressPct%>%;background:#7c3aed;transition:width .6s"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-<% } else { %>
-<div class="alert alert-success">لا توجد طلبات متأخرة حالياً 🎉</div>
-<% } %>
+
+<%# ════ PRODUCTION PIPELINE ════ %>
+<div class="section-card mb-4">
+  <div class="section-card-header">
+    <span>🏭 خط الإنتاج</span>
+    <span class="text-muted small"><%= totalOrders - (counts['ملغي']||0) %> طلب نشط</span>
+  </div>
+  <div class="pipeline-wrap">
+    <% stageFunnel.forEach(function(sf, idx){ %>
+    <a href="<%= sf.link %>" class="pipeline-stage text-decoration-none">
+      <div class="pipe-icon"><%= sf.icon %></div>
+      <div class="pipe-count" style="color:<%= sf.color %>"><%= sf.count %></div>
+      <div class="pipe-label"><%= sf.label %></div>
+      <div class="pipe-bar">
+        <div class="pipe-fill" style="background:<%= sf.color %>;width:<%=sf.pct%>%"></div>
+      </div>
+      <div class="pipe-pct text-muted" style="font-size:.68rem;margin-top:3px"><%= sf.pct %>%</div>
+    </a>
+    <% if (idx < stageFunnel.length - 1) { %>
+    <div class="pipe-arrow">›</div>
+    <% } %>
+    <% }) %>
+  </div>
+</div>
+
+<%# ════ CHARTS + ALERTS ════ %>
+<div class="row g-3 mb-4">
+  <%# Chart %>
+  <div class="col-lg-7">
+    <div class="section-card h-100 d-flex flex-column">
+      <div class="section-card-header">
+        <span>📊 الطلبات عبر الزمن</span>
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-outline-secondary active" onclick="showChart('daily',this)">يومي</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="showChart('weekly',this)">أسبوعي</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="showChart('monthly',this)">شهري</button>
+        </div>
+      </div>
+      <div class="p-3 flex-grow-1" style="position:relative;min-height:200px">
+        <canvas id="ordersChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <%# Alerts %>
+  <div class="col-lg-5">
+    <div class="section-card h-100 d-flex flex-column">
+      <div class="section-card-header">
+        <span>🔔 التنبيهات</span>
+        <% var alertTotal = late.length + lowInventory.length; %>
+        <% if (alertTotal > 0) { %>
+        <span class="badge bg-danger"><%= alertTotal %></span>
+        <% } else { %>
+        <span class="badge bg-success">لا تنبيهات</span>
+        <% } %>
+      </div>
+      <div class="flex-grow-1 overflow-auto" style="max-height:280px">
+        <% if (alertTotal === 0) { %>
+        <div class="text-center text-muted py-4">
+          <div style="font-size:2.5rem">🎉</div>
+          <div class="small mt-2">كل شيء على ما يرام!</div>
+        </div>
+        <% } %>
+
+        <% if (late.length > 0) { %>
+        <div class="alert-section-label">⏰ طلبات متأخرة (<%= late.length %>)</div>
+        <% late.slice(0, 5).forEach(function(o){ %>
+        <a href="/orders/<%= o.id %>" class="alert-item alert-late text-decoration-none d-block">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-bold" style="font-size:.85rem"><%= o.order_number %></div>
+              <% if (!hideCustomer) { %>
+              <div class="text-muted" style="font-size:.75rem"><%= o.customer_name %> · <%= o.status %></div>
+              <% } else { %>
+              <div class="text-muted" style="font-size:.75rem"><%= o.status %></div>
+              <% } %>
+            </div>
+            <span class="badge bg-danger"><%= o.days_late %> يوم</span>
+          </div>
+        </a>
+        <% }) %>
+        <% if (late.length > 5) { %>
+        <div class="text-center py-1"><a href="/orders" class="text-danger small">+ <%= late.length - 5 %> أخرى</a></div>
+        <% } %>
+        <% } %>
+
+        <% if (lowInventory.length > 0) { %>
+        <div class="alert-section-label">⚠️ مخزون منخفض (<%= lowInventory.length %>)</div>
+        <% lowInventory.slice(0, 4).forEach(function(item){ %>
+        <a href="/inventory" class="alert-item alert-stock text-decoration-none d-block">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-bold" style="font-size:.85rem"><%= item.name %></div>
+              <div class="text-muted" style="font-size:.75rem">متاح: <%= item.qty %> <%= item.unit %> · الحد: <%= item.low_stock_threshold %></div>
+            </div>
+            <span class="badge bg-warning text-dark">نقص</span>
+          </div>
+        </a>
+        <% }) %>
+        <% if (lowInventory.length > 4) { %>
+        <div class="text-center py-1"><a href="/inventory" class="text-warning small">+ <%= lowInventory.length - 4 %> أخرى</a></div>
+        <% } %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%# ════ WORKSHOP + EMBROIDERY PERFORMANCE ════ %>
+<div class="row g-3 mb-4">
+  <%# Workshops %>
+  <div class="col-md-7">
+    <div class="section-card">
+      <div class="section-card-header">
+        <span>🏭 أداء المشاغل</span>
+        <a href="/workshops" class="btn btn-sm btn-outline-secondary py-0">الكل</a>
+      </div>
+      <% if (wsPerf.length === 0) { %>
+      <div class="text-muted text-center py-4 small">لا توجد مشاغل نشطة</div>
+      <% } %>
+      <% wsPerf.forEach(function(w){ %>
+      <div class="ws-perf-row">
+        <div class="ws-name">🏭 <%= w.name %></div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <% if (w.waitingJobs > 0) { %>
+          <span class="badge" style="background:#e8f0fd;color:#0d47a1"><%= w.waitingJobs %> انتظار</span>
+          <% } %>
+          <% if (w.activeJobs > 0) { %>
+          <span class="badge" style="background:#fff3cd;color:#856404"><%= w.activeJobs %> نشط</span>
+          <% } %>
+          <% if (w.doneJobs > 0) { %>
+          <span class="badge bg-success"><%= w.doneJobs %> منجز</span>
+          <% } %>
+          <% if (w.total === 0) { %>
+          <span class="text-muted small">لا أعمال مسجلة</span>
+          <% } %>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+  <%# Embroidery %>
+  <div class="col-md-5">
+    <div class="section-card">
+      <div class="section-card-header">
+        <span>🧵 أداء التطريز</span>
+        <a href="/embroiderers" class="btn btn-sm btn-outline-secondary py-0">الكل</a>
+      </div>
+      <div class="p-3">
+        <% if (embPerf.totalJobs === 0) { %>
+        <div class="text-center text-muted small py-2">لا توجد أعمال تطريز</div>
+        <% } else { %>
+        <div class="row g-2 mb-3">
+          <div class="col-6 text-center">
+            <div class="fw-bold" style="font-size:1.6rem;color:#7c3aed"><%= embPerf.totalDone %></div>
+            <div class="text-muted small">قطعة منجزة</div>
+          </div>
+          <div class="col-6 text-center">
+            <div class="fw-bold" style="font-size:1.6rem;color:<%= embPerf.totalErrors>0?'#dc3545':'#198754' %>"><%= embPerf.totalErrors %></div>
+            <div class="text-muted small">أخطاء</div>
+          </div>
+        </div>
+        <div class="mb-2">
+          <div class="d-flex justify-content-between small mb-1">
+            <span>نسبة الإنجاز</span>
+            <strong style="color:#7c3aed"><%= embPerf.doneRate %>%</strong>
+          </div>
+          <div class="progress" style="height:6px;border-radius:3px">
+            <div class="progress-bar" style="width:<%=embPerf.doneRate%>%;background:#7c3aed"></div>
+          </div>
+        </div>
+        <% if (embPerf.errorRate > 0) { %>
+        <div>
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="text-danger">نسبة الأخطاء</span>
+            <strong class="text-danger"><%= embPerf.errorRate %>%</strong>
+          </div>
+          <div class="progress" style="height:6px;border-radius:3px">
+            <div class="progress-bar bg-danger" style="width:<%=embPerf.errorRate%>%"></div>
+          </div>
+        </div>
+        <% } %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%# ════ RECENT ORDERS ════ %>
+<div class="section-card mb-4">
+  <div class="section-card-header">
+    <span>📋 أحدث الطلبات</span>
+    <a href="/orders" class="btn btn-sm btn-outline-secondary py-0">عرض الكل</a>
+  </div>
+
+  <%# Desktop table %>
+  <div class="table-responsive order-table-desktop">
+    <table class="table table-hover table-sm mb-0">
+      <thead>
+        <tr>
+          <th style="padding-right:16px">رقم الطلب</th>
+          <% if (!hideCustomer) { %><th>العميل</th><% } %>
+          <th>القطع</th>
+          <th>المرحلة الحالية</th>
+          <th style="min-width:130px">التقدم</th>
+          <th>تاريخ الطلب</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% recentOrders.forEach(function(o){ %>
+        <tr class="<%= o.late ? 'late-row' : '' %>">
+          <td style="padding-right:16px">
+            <strong class="text-primary"><%= o.order_number %></strong>
+            <% if (o.late) { %><span class="badge bg-danger ms-1" style="font-size:.65rem">متأخر</span><% } %>
+          </td>
+          <% if (!hideCustomer) { %>
+          <td class="text-muted small"><%= o.customer_name %></td>
+          <% } %>
+          <td class="text-center fw-bold"><%= o.totalQty %></td>
+          <td>
+            <span class="badge bg-<%= STATUS_COLORS[o.status] || 'secondary' %> badge-status"><%= o.status %></span>
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" style="height:5px;border-radius:3px">
+                <div class="progress-bar" style="width:<%=o.progress%>%;background:<%=o.progress===100?'#198754':o.late?'#dc3545':'#c9a24b'%>;transition:width .5s"></div>
+              </div>
+              <small class="text-muted" style="min-width:28px;font-size:.75rem"><%= o.progress %>%</small>
+            </div>
+          </td>
+          <td class="text-muted small"><%= (o.created_at||'').slice(0,10) %></td>
+          <td><a href="/orders/<%= o.id %>" class="btn btn-sm btn-outline-secondary py-0 px-2">فتح</a></td>
+        </tr>
+        <% }) %>
+        <% if (recentOrders.length === 0) { %>
+        <tr><td colspan="7" class="text-center text-muted py-4">لا توجد طلبات بعد</td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <%# Mobile cards %>
+  <div class="order-mobile-list px-3 pb-2 pt-1">
+    <% recentOrders.forEach(function(o){ %>
+    <a href="/orders/<%= o.id %>" class="order-mob-card text-decoration-none d-block mb-2 <%= o.late ? 'order-mob-late' : '' %>">
+      <div class="d-flex justify-content-between align-items-start mb-1">
+        <div>
+          <strong class="text-primary small"><%= o.order_number %></strong>
+          <% if (o.late) { %><span class="badge bg-danger ms-1" style="font-size:.6rem">متأخر</span><% } %>
+        </div>
+        <span class="badge bg-<%= STATUS_COLORS[o.status]||'secondary' %> badge-status"><%= o.status %></span>
+      </div>
+      <% if (!hideCustomer) { %>
+      <div class="text-muted mb-1" style="font-size:.78rem"><%= o.customer_name %></div>
+      <% } %>
+      <div class="d-flex align-items-center gap-2">
+        <div class="progress flex-grow-1" style="height:4px;border-radius:2px">
+          <div class="progress-bar" style="width:<%=o.progress%>%;background:<%=o.progress===100?'#198754':o.late?'#dc3545':'#c9a24b'%>"></div>
+        </div>
+        <small class="text-muted" style="font-size:.72rem"><%= o.progress %>%</small>
+      </div>
+    </a>
+    <% }) %>
+    <% if (recentOrders.length === 0) { %>
+    <div class="text-center text-muted py-3 small">لا توجد طلبات بعد</div>
+    <% } %>
+  </div>
+</div>
+
+<%# ════ QUICK ACTIONS ════ %>
+<div class="row g-3 mb-2">
+  <div class="col-6 col-md-3">
+    <a href="/orders/new" class="quick-action-btn text-decoration-none d-block">
+      <span class="qa-icon">➕</span>
+      <span class="qa-label">طلب جديد</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/prep" class="quick-action-btn text-decoration-none d-block" style="--qa-color:#0d6efd">
+      <span class="qa-icon">🗂️</span>
+      <span class="qa-label">قوائم التجهيز</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/barcode" class="quick-action-btn text-decoration-none d-block" style="--qa-color:#7c3aed">
+      <span class="qa-icon">📷</span>
+      <span class="qa-label">ماسح الباركود</span>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/reports" class="quick-action-btn text-decoration-none d-block" style="--qa-color:#198754">
+      <span class="qa-icon">📈</span>
+      <span class="qa-label">التقارير</span>
+    </a>
+  </div>
+</div>
+
+<%# ════ CHART.JS ════ %>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'Tajawal', sans-serif";
+Chart.defaults.color = '#666';
+Chart.defaults.borderColor = '#f0f0f0';
+
+const dailyData   = <%- chartDaily %>;
+const weeklyData  = <%- chartWeekly %>;
+const monthlyData = <%- chartMonthly %>;
+
+let chart = null;
+
+function buildChart(data) {
+  const ctx = document.getElementById('ordersChart').getContext('2d');
+  if (chart) chart.destroy();
+  const hasDone = data.some(d => (d.done || 0) > 0);
+  const datasets = [
+    {
+      label: 'طلبات جديدة',
+      data: data.map(d => d.count),
+      backgroundColor: 'rgba(201,162,75,0.75)',
+      borderRadius: 5,
+      borderSkipped: false,
+    }
+  ];
+  if (hasDone) {
+    datasets.push({
+      label: 'مكتملة',
+      data: data.map(d => d.done || 0),
+      backgroundColor: 'rgba(25,135,84,0.7)',
+      borderRadius: 5,
+      borderSkipped: false,
+    });
+  }
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: data.map(d => d.label), datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', align: 'end', rtl: true, labels: { boxWidth: 12, padding: 12, font: { size: 12 } } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: '#f4f4f4' } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function showChart(period, btn) {
+  document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if      (period === 'daily')   buildChart(dailyData);
+  else if (period === 'weekly')  buildChart(weeklyData);
+  else                           buildChart(monthlyData);
+}
+
+buildChart(dailyData);
+
+// Live clock
+function updateClock() {
+  const el = document.getElementById('dash-datetime');
+  if (!el) return;
+  const now = new Date();
+  el.textContent = now.toLocaleDateString('ar-SA-u-nu-latn', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  }) + '  ' + now.toLocaleTimeString('ar-SA-u-nu-latn', { hour: '2-digit', minute: '2-digit' });
+}
+updateClock();
+setInterval(updateClock, 30000);
+
+// Auto-refresh page every 5 minutes to keep data live
+setTimeout(() => location.reload(), 5 * 60 * 1000);
+</script>
 
 <%- include('partials/foot') %>
