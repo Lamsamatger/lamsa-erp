@@ -501,6 +501,17 @@
   ],
   "activity_logs": [
     {
+      "id": "log_c43d2ee65681",
+      "user_id": "u1",
+      "action": "تسجيل دخول",
+      "details": "المدير العام (المدير العام)",
+      "module": "auth",
+      "action_type": "security",
+      "before": null,
+      "after": null,
+      "at": "2026-07-10T19:20:15.212Z"
+    },
+    {
       "id": "log_97be91f95cc1",
       "user_id": "u1",
       "action": "تسجيل دخول",
