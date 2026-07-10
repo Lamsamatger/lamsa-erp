@@ -2,3 +2,4 @@
 - [Workflow Port Split](workflow-port-split.md) — Express ERP on port 5000 (webview), Next.js dashboard on port 3000 (console); dashboard script uses --port 3000
 - [Production & Packaging Module](production-module.md) — ORDER_STATUSES now 12, isLate excludes all post-QC statuses, initInv/initPkg pattern for lazy array init
 - [Inventory Module](inventory-module.md) — inventory_items + inventory_movements arrays; ITEM_CATEGORIES; INVENTORY_UNITS; allowlist validation; floating-point rounding pattern
+- [Reports Module](reports-module.md) — 5-tab reports page; period filter applied to KPIs + all subsections; period-scoped fallback to all-time when period dataset is empty

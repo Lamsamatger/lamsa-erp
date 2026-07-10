@@ -1981,23 +1981,260 @@ app.post('/users/:id/delete', requireAuth, requireSection('users'), (req, res) =
 // ---------- REPORTS (simple, part of dashboard) ----------
 app.get('/reports', requireAuth, requireSection('dashboard'), (req, res) => {
   const db = load();
-  const byWorkshop = db.workshops.map(w => {
-    const jobs = db.workshop_jobs.filter(j => j.workshop_id === w.id);
-    return {
-      name: w.name,
-      delivered: jobs.reduce((s, j) => s + (j.delivered_qty || 0), 0),
-      received: jobs.reduce((s, j) => s + (j.received_qty || 0), 0)
-    };
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const thisMonth = now.toISOString().slice(0, 7);
+
+  // ── Helper ─────────────────────────────────────────────────────
+  function durationDays(iso1, iso2) {
+    const t1 = new Date(iso1).getTime();
+    const t2 = iso2 ? new Date(iso2).getTime() : Date.now();
+    return Math.floor((t2 - t1) / (1000 * 60 * 60 * 24));
+  }
+
+  // ── Period filter ──────────────────────────────────────────────
+  const period = parseInt(req.query.period || '30') || 30;
+  const cutoff = new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString();
+
+  // ── Orders segmentation ────────────────────────────────────────
+  const allOrders       = db.orders     || [];
+  const allWorkshops    = db.workshops  || [];
+  const allEmbroiderers = db.embroiderers || [];
+  const allUsers        = db.users      || [];
+
+  const completedOrders = allOrders.filter(o => o.status === 'تم التنفيذ');
+  const cancelledOrders = allOrders.filter(o => o.status === 'ملغي');
+  const activeOrders    = allOrders.filter(o => !['تم التنفيذ', 'ملغي'].includes(o.status));
+  const lateOrders      = activeOrders.filter(isLate);
+
+  // Period-scoped datasets (creation date within window)
+  const periodOrders    = allOrders.filter(o => (o.created_at || '') >= cutoff);
+  const periodCancelled = periodOrders.filter(o => o.status === 'ملغي');
+  const periodCompleted = periodOrders.filter(o => o.status === 'تم التنفيذ');
+
+  // ── KPI 1: Production Efficiency (period-scoped) ───────────────
+  const pEligible = periodOrders.length - periodCancelled.length;
+  const productionEfficiency = pEligible > 0
+    ? Math.round((periodCompleted.length / pEligible) * 100) : 0;
+
+  // ── KPI 2: On-time Completion (period-scoped) ──────────────────
+  const onTimeOrders = periodCompleted.filter(o =>
+    durationDays(o.created_at, o.updated_at) <= DELAY_DAYS_THRESHOLD
+  );
+  const onTimeRate = periodCompleted.length > 0
+    ? Math.round((onTimeOrders.length / periodCompleted.length) * 100) : 0;
+
+  // ── KPI 3: Delay Rate — always current snapshot ────────────────
+  const delayRate = activeOrders.length > 0
+    ? Math.round((lateOrders.length / activeOrders.length) * 100) : 0;
+
+  // ── KPI 4: Embroidery Error Rate (period-scoped by order) ──────
+  const embroideryJobs = db.embroidery_jobs || [];
+  // Match jobs to orders in the period
+  const periodOrderIds = new Set(periodOrders.map(o => o.id));
+  const periodEmbJobs  = embroideryJobs.filter(j => periodOrderIds.has(j.order_id));
+  const totalEmbReceived = (periodEmbJobs.length > 0 ? periodEmbJobs : embroideryJobs)
+    .reduce((s, j) => s + (j.received_qty || 0), 0);
+  const totalEmbErrors   = (periodEmbJobs.length > 0 ? periodEmbJobs : embroideryJobs)
+    .reduce((s, j) => s + (j.errors || 0), 0);
+  const errorRate = totalEmbReceived > 0
+    ? Math.round((totalEmbErrors / totalEmbReceived) * 100) : 0;
+
+  // ── Status funnel ──────────────────────────────────────────────
+  const statusCounts = {};
+  ORDER_STATUSES.forEach(s => { statusCounts[s] = 0; });
+  allOrders.forEach(o => { statusCounts[o.status] = (statusCounts[o.status] || 0) + 1; });
+  const maxStatusCount = Math.max(1, ...Object.values(statusCounts));
+
+  // ── Items by stage ─────────────────────────────────────────────
+  const ITEM_STAGES_ALL = ['تجهيز','عند المشغل','مستلم من المشغل','عند المطرز','جاهز للتغليف','تم التنفيذ'];
+  const stageCounts = {};
+  ITEM_STAGES_ALL.forEach(s => { stageCounts[s] = 0; });
+  allOrders.forEach(o => {
+    (o.items || []).forEach(item => {
+      const s = item.stage || 'تجهيز';
+      stageCounts[s] = (stageCounts[s] || 0) + (item.qty || 1);
+    });
+  });
+  const totalItemsInPipeline = Math.max(1, Object.values(stageCounts).reduce((s, v) => s + v, 0));
+
+  // ── Workshop performance (period-scoped by order link) ────────
+  const workshopJobs    = db.workshop_jobs || [];
+  const periodWsJobs    = workshopJobs.filter(j => periodOrderIds.has(j.order_id));
+  const wjSrc           = periodWsJobs.length > 0 ? periodWsJobs : workshopJobs;
+  const byWorkshop = allWorkshops.map(w => {
+    const jobs       = wjSrc.filter(j => j.workshop_id === w.id);
+    const delivered  = jobs.reduce((s, j) => s + (j.delivered_qty || 0), 0);
+    const received   = jobs.reduce((s, j) => s + (j.received_qty  || 0), 0);
+    const pending    = jobs.filter(j => j.status === 'عند المشغل').length;
+    const efficiency = delivered > 0 ? Math.round((received / delivered) * 100) : 0;
+    const completedJobs = jobs.filter(j => j.delivered_at && j.received_at);
+    const avgDays = completedJobs.length > 0
+      ? (completedJobs.reduce((s, j) => s + durationDays(j.delivered_at, j.received_at), 0) / completedJobs.length).toFixed(1)
+      : '—';
+    return { id: w.id, name: w.name, delivered, received, pending, efficiency, avgDays, totalJobs: jobs.length };
+  });
+  const wsDelivered  = byWorkshop.reduce((s, w) => s + w.delivered, 0);
+  const wsReceived   = byWorkshop.reduce((s, w) => s + w.received, 0);
+  const wsEfficiency = wsDelivered > 0 ? Math.round((wsReceived / wsDelivered) * 100) : 0;
+
+  // ── Embroidery per embroiderer (period-scoped) ────────────────
+  const periodEmbSrc = periodEmbJobs.length > 0 ? periodEmbJobs : embroideryJobs;
+  const byEmbroiderer = allEmbroiderers.map(e => {
+    const jobs     = periodEmbSrc.filter(j => j.embroiderer_id === e.id);
+    const received = jobs.reduce((s, j) => s + (j.received_qty || 0), 0);
+    const done     = jobs.reduce((s, j) => s + (j.done_qty     || 0), 0);
+    const errors   = jobs.reduce((s, j) => s + (j.errors       || 0), 0);
+    const errPct   = received > 0 ? Math.round((errors / received) * 100) : 0;
+    return { name: e.name, received, done, errors, errPct, jobs: jobs.length };
   });
 
+  // ── Packaging stats (period-scoped) ───────────────────────────
+  const allPackages  = db.packages || [];
+  const packages     = allPackages.filter(p => !p.created_at || p.created_at >= cutoff);
+  const pkgSrc       = packages.length > 0 ? packages : allPackages;
+  const pkgDone      = pkgSrc.filter(p => p.status === 'تم التغليف').length;
+  const pkgRate      = pkgSrc.length > 0 ? Math.round((pkgDone / pkgSrc.length) * 100) : 0;
+  const timedPkgs    = pkgSrc.filter(p => p.started_at && p.completed_at);
+  const avgPkgMins   = timedPkgs.length > 0
+    ? Math.round(timedPkgs.reduce((s, p) =>
+        s + (new Date(p.completed_at) - new Date(p.started_at)) / 60000, 0) / timedPkgs.length)
+    : 0;
+  const totalPieces  = pkgSrc.reduce((s, p) => s + (p.pieces_count || 0), 0);
+
+  // ── Shipping stats (period-scoped) ────────────────────────────
+  const allShipments = db.shipments || [];
+  const shipments    = allShipments.filter(s => !s.created_at || s.created_at >= cutoff);
+  const shpSrc       = shipments.length > 0 ? shipments : allShipments;
+  const shpDelivered = shpSrc.filter(s => s.status === 'تم التسليم').length;
+  const shpFailed    = shpSrc.filter(s => s.status === 'فشل التسليم').length;
+  const shpRate      = shpSrc.length > 0 ? Math.round((shpDelivered / shpSrc.length) * 100) : 0;
+  const byCompany    = {};
+  shpSrc.forEach(s => {
+    const co = s.shipping_company || 'غير محدد';
+    if (!byCompany[co]) byCompany[co] = { count: 0, delivered: 0, failed: 0 };
+    byCompany[co].count++;
+    if (s.status === 'تم التسليم') byCompany[co].delivered++;
+    if (s.status === 'فشل التسليم') byCompany[co].failed++;
+  });
+  const byCompanyArr = Object.entries(byCompany).map(([name, d]) => ({
+    name, ...d,
+    rate: d.count > 0 ? Math.round((d.delivered / d.count) * 100) : 0
+  })).sort((a, b) => b.count - a.count);
+
+  // ── Barcode scan activity (period-scoped) ──────────────────────
+  const activityLogs     = db.activity_logs || [];
+  const periodActLogs    = activityLogs.filter(l => (l.at || '') >= cutoff);
+  const scanLogs         = activityLogs.filter(l => l.action && l.action.includes('مسح باركود'));
+  const periodScanLogs   = scanLogs.filter(l => (l.at || '') >= cutoff);
+  const scansByDay       = {};
+  periodScanLogs.forEach(l => {
+    const day = (l.at || '').slice(0, 10);
+    if (day) scansByDay[day] = (scansByDay[day] || 0) + 1;
+  });
+  const scanDailyArr  = Object.entries(scansByDay).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 7);
+  const scansToday    = scansByDay[today] || 0;
+  const scansTotal    = periodScanLogs.length;
+  const scansOut      = periodScanLogs.filter(l => l.action.includes('out_workshop')).length;
+  const scansIn       = periodScanLogs.filter(l => l.action.includes('in_workshop')).length;
+
+  // ── Inventory usage (period-scoped) ───────────────────────────
+  const invMovements     = db.inventory_movements || [];
+  const periodInvMoves   = invMovements.filter(m => (m.at || '') >= cutoff);
+  const invSrc           = periodInvMoves.length > 0 ? periodInvMoves : invMovements;
+  const issuedMoves      = invSrc.filter(m => m.type === 'صرف');
+  const movTypeBreakdown = {
+    'استلام': invSrc.filter(m => m.type === 'استلام').length,
+    'صرف':    issuedMoves.length,
+    'إرجاع':  invSrc.filter(m => m.type === 'إرجاع').length,
+    'تسوية':  invSrc.filter(m => m.type === 'تسوية').length,
+    'جرد':    invSrc.filter(m => m.type === 'جرد').length
+  };
+  const usageByItem = {};
+  issuedMoves.forEach(m => {
+    const k = m.item_name || m.item_id;
+    if (!usageByItem[k]) usageByItem[k] = { name: k, qty: 0, txns: 0 };
+    usageByItem[k].qty  += Math.abs(m.qty || 0);
+    usageByItem[k].txns++;
+  });
+  const topIssuedItems  = Object.values(usageByItem).sort((a, b) => b.qty - a.qty).slice(0, 8);
+  const usageByOrder    = {};
+  issuedMoves.filter(m => m.order_number).forEach(m => {
+    const k = m.order_number;
+    if (!usageByOrder[k]) usageByOrder[k] = { order_number: k, order_id: m.order_id, items: [] };
+    usageByOrder[k].items.push(m);
+  });
+  const usageByOrderArr = Object.values(usageByOrder).slice(0, 10);
+
+  // ── Daily completion trend (last 14 active days) ───────────────
   const dailyMap = {};
-  db.orders.filter(o => o.status === 'تم التنفيذ').forEach(o => {
+  completedOrders.forEach(o => {
     const day = (o.updated_at || '').slice(0, 10);
-    dailyMap[day] = (dailyMap[day] || 0) + 1;
+    if (day) dailyMap[day] = (dailyMap[day] || 0) + 1;
   });
-  const daily = Object.entries(dailyMap).sort((a, b) => a[0] < b[0] ? 1 : -1).slice(0, 14);
+  const daily         = Object.entries(dailyMap).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14);
+  const maxDailyCount = Math.max(1, ...daily.map(d => d[1]));
 
-  res.render('reports', { byWorkshop, daily, totalOrders: db.orders.length });
+  // ── Activity log (period-scoped, last 50) ─────────────────────
+  const userMap = {};
+  allUsers.forEach(u => { userMap[u.id] = u; });
+  const recentActivity = periodActLogs.slice(0, 50).map(l => ({
+    ...l,
+    user_name: userMap[l.user_id] ? userMap[l.user_id].name : 'غير معروف',
+    user_role: userMap[l.user_id] ? userMap[l.user_id].role : ''
+  }));
+  const actionCounts = {};
+  periodActLogs.forEach(l => {
+    const a = l.action || 'أخرى';
+    actionCounts[a] = (actionCounts[a] || 0) + 1;
+  });
+  const topActions = Object.entries(actionCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  // ── Status-change history (period-scoped) ─────────────────────
+  const statusChangeLog = periodActLogs
+    .filter(l => l.action === 'تغيير حالة طلب')
+    .slice(0, 30).map(l => ({ ...l, user_name: userMap[l.user_id] ? userMap[l.user_id].name : '—' }));
+
+  // ── Monthly/today summary ──────────────────────────────────────
+  const doneToday     = completedOrders.filter(o => (o.updated_at||'').slice(0,10) === today).length;
+  const doneThisMonth = completedOrders.filter(o => (o.updated_at||'').slice(0,7) === thisMonth).length;
+  const newThisMonth  = allOrders.filter(o => (o.created_at||'').slice(0,7) === thisMonth).length;
+
+  res.render('reports', {
+    title: 'التقارير',
+    tab: req.query.tab || 'overview',
+    period,
+    // KPIs
+    kpi: {
+      productionEfficiency, onTimeRate, delayRate, errorRate,
+      wsEfficiency, pkgRate, shpRate
+    },
+    // Counts
+    counts: {
+      total: allOrders.length, active: activeOrders.length,
+      completed: completedOrders.length, cancelled: cancelledOrders.length,
+      late: lateOrders.length, doneToday, doneThisMonth, newThisMonth,
+      periodOrders: periodOrders.length, periodCompleted: periodCompleted.length
+    },
+    // Overview
+    statusCounts, maxStatusCount, ORDER_STATUSES, STATUS_COLORS,
+    stageCounts, ITEM_STAGES_ALL, totalItemsInPipeline,
+    daily, maxDailyCount,
+    // Production
+    byWorkshop, wsDelivered, wsReceived,
+    byEmbroiderer, totalEmbErrors, totalEmbReceived,
+    scanDailyArr, scansToday, scansTotal, scansOut, scansIn,
+    statusChangeLog,
+    // Packaging & Shipping
+    packages: pkgSrc, pkgDone, pkgRate, avgPkgMins, totalPieces,
+    shipments: shpSrc, shpDelivered, shpFailed, shpRate, byCompanyArr,
+    // Inventory
+    invMovements, movTypeBreakdown, topIssuedItems, usageByOrderArr,
+    totalInventoryItems: (db.inventory_items || []).length,
+    // Activity
+    recentActivity, topActions,
+    DELAY_DAYS_THRESHOLD
+  });
 });
 
 // ---------- BARCODE ITEM DETAIL ----------

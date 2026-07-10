@@ -1,28 +1,831 @@
 <%- include('partials/head', {title: 'التقارير'}) %>
-<h4 class="page-title">التقارير</h4>
 
-<div class="bg-white rounded p-3 shadow-sm mb-3">
-  <h6>أداء المشاغل</h6>
-  <table class="table table-sm">
-    <thead><tr><th>المشغل</th><th>مُسلّم</th><th>مُستلم</th></tr></thead>
-    <tbody>
-    <% byWorkshop.forEach(function(w){ %>
-      <tr><td><%= w.name %></td><td><%= w.delivered %></td><td><%= w.received %></td></tr>
-    <% }) %>
-    </tbody>
-  </table>
+<style>
+/* ── Reports Page ─────────────────────────────────────── */
+:root { --navy:#1a2d4a; --gold:#c9a24b; --green:#10b981; --red:#ef4444; --orange:#f59e0b; --purple:#8b5cf6; --teal:#0d9488; }
+
+.rpt-kpi { background:#fff; border-radius:14px; padding:16px 20px; box-shadow:0 2px 10px rgba(0,0,0,.06); border-top:4px solid var(--navy); height:100%; }
+.rpt-kpi.k-green  { border-top-color:var(--green); }
+.rpt-kpi.k-red    { border-top-color:var(--red); }
+.rpt-kpi.k-gold   { border-top-color:var(--gold); }
+.rpt-kpi.k-orange { border-top-color:var(--orange); }
+.rpt-kpi.k-teal   { border-top-color:var(--teal); }
+.rpt-kpi.k-purple { border-top-color:var(--purple); }
+.rpt-kpi .kpi-num { font-size:2rem; font-weight:900; line-height:1; color:var(--navy); }
+.rpt-kpi .kpi-lbl { font-size:.8rem; color:#888; margin-top:4px; }
+.rpt-kpi .kpi-sub { font-size:.72rem; color:#aaa; margin-top:6px; }
+.pct-good  { color:var(--green); }
+.pct-warn  { color:var(--orange); }
+.pct-bad   { color:var(--red); }
+
+/* Count pills row */
+.count-pill { background:#f8fafc; border-radius:12px; padding:10px 16px; text-align:center; }
+.count-pill .cp-num { font-size:1.5rem; font-weight:900; color:var(--navy); line-height:1; }
+.count-pill .cp-lbl { font-size:.72rem; color:#888; margin-top:2px; }
+
+/* Section panel */
+.rpt-panel { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.06); margin-bottom:20px; overflow:hidden; }
+.rpt-panel-hd { padding:13px 18px; border-bottom:1px solid #f0f0f0; font-weight:800; font-size:.9rem; color:var(--navy); display:flex; align-items:center; gap:8px; }
+.rpt-panel-body { padding:16px 18px; }
+
+/* Tab nav */
+.rpt-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+.rpt-tab { padding:8px 18px; border-radius:30px; background:#f0f4f8; color:#555; font-size:.85rem; font-weight:600; text-decoration:none; transition:all .15s; border:none; cursor:pointer; }
+.rpt-tab:hover { background:#e2e8f0; color:var(--navy); }
+.rpt-tab.active { background:var(--navy); color:#fff; }
+
+/* Funnel bars */
+.funnel-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.funnel-lbl { font-size:.8rem; color:#555; text-align:right; min-width:140px; flex-shrink:0; }
+.funnel-bar-wrap { flex:1; height:18px; background:#f0f4f8; border-radius:10px; overflow:hidden; }
+.funnel-bar-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,var(--navy),#4a7ab5); transition:width .4s; }
+.funnel-count { font-size:.8rem; font-weight:700; color:var(--navy); min-width:30px; text-align:left; }
+
+/* Stage pipeline */
+.stage-pipeline { display:flex; gap:0; overflow-x:auto; padding:4px 0 8px; }
+.stage-step { flex:1; min-width:90px; display:flex; flex-direction:column; align-items:center; position:relative; padding:0 4px; }
+.stage-step:not(:last-child)::after { content:''; position:absolute; top:22px; left:0; width:100%; height:2px; background:#e5e7eb; z-index:0; }
+.stage-step.has-items::after { background:linear-gradient(90deg,var(--gold),#e5e7eb); }
+.stage-bubble { width:44px; height:44px; border-radius:50%; background:#f3f4f6; border:2px solid #e0e0e0; display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:900; color:#bbb; position:relative; z-index:1; }
+.stage-step.has-items .stage-bubble { background:var(--navy); border-color:var(--navy); color:var(--gold); }
+.stage-lbl { font-size:.68rem; color:#888; margin-top:5px; text-align:center; line-height:1.3; font-weight:600; }
+.stage-step.has-items .stage-lbl { color:var(--navy); font-weight:700; }
+.stage-pct { font-size:.65rem; color:#aaa; margin-top:1px; }
+.stage-step.has-items .stage-pct { color:var(--gold); }
+
+/* Workshop table */
+.ws-bar-wrap { height:5px; background:#e5e7eb; border-radius:10px; overflow:hidden; margin-top:3px; }
+.ws-bar-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,var(--green),var(--gold)); }
+
+/* Daily chart (bar) */
+.daily-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.daily-day { font-size:.75rem; color:#888; min-width:85px; text-align:right; flex-shrink:0; }
+.daily-bar-wrap { flex:1; height:14px; background:#f0f4f8; border-radius:8px; overflow:hidden; }
+.daily-bar-fill { height:100%; border-radius:8px; background:linear-gradient(90deg,var(--teal),var(--green)); }
+.daily-cnt { font-size:.78rem; font-weight:700; color:var(--navy); min-width:20px; text-align:left; }
+
+/* Activity log */
+.act-row { display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid #f5f5f5; }
+.act-row:last-child { border-bottom:none; }
+.act-icon { width:32px; height:32px; border-radius:50%; background:#f0f4f8; display:flex; align-items:center; justify-content:center; font-size:.85rem; flex-shrink:0; }
+.act-body { flex:1; min-width:0; }
+.act-action { font-size:.82rem; font-weight:700; color:var(--navy); }
+.act-detail { font-size:.75rem; color:#888; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.act-meta { font-size:.72rem; color:#aaa; margin-top:2px; }
+
+/* Scan badge */
+.scan-badge { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:20px; font-size:.75rem; font-weight:700; }
+.scan-out { background:#fef3c7; color:#92400e; }
+.scan-in  { background:#d1fae5; color:#065f46; }
+
+/* Move type badge */
+.mov-type { display:inline-block; padding:2px 9px; border-radius:12px; font-size:.72rem; font-weight:700; }
+.mov-recv { background:#d1fae5; color:#065f46; }
+.mov-issue{ background:#fee2e2; color:#991b1b; }
+.mov-ret  { background:#dbeafe; color:#1e40af; }
+.mov-adj  { background:#fef3c7; color:#92400e; }
+
+/* Period selector */
+.period-pills { display:flex; gap:6px; flex-wrap:wrap; }
+.period-pill { padding:5px 14px; border-radius:20px; background:#f0f4f8; color:#555; font-size:.8rem; font-weight:600; text-decoration:none; }
+.period-pill.active { background:var(--navy); color:#fff; }
+
+@media (max-width:768px) {
+  .funnel-lbl { min-width:100px; font-size:.72rem; }
+  .rpt-kpi .kpi-num { font-size:1.6rem; }
+  .stage-pipeline { padding-bottom:4px; }
+}
+</style>
+
+<!-- ── Header ── -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h1 class="page-title mb-0">📈 التقارير والإحصاءات</h1>
+  <div class="period-pills">
+    <a href="/reports?tab=<%=tab%>&period=7"  class="period-pill <%=period===7?'active':''%>">7 أيام</a>
+    <a href="/reports?tab=<%=tab%>&period=30" class="period-pill <%=period===30?'active':''%>">30 يوم</a>
+    <a href="/reports?tab=<%=tab%>&period=90" class="period-pill <%=period===90?'active':''%>">90 يوم</a>
+    <a href="/reports?tab=<%=tab%>&period=365"class="period-pill <%=period===365?'active':''%>">السنة</a>
+    <a href="/reports?tab=<%=tab%>&period=3650" class="period-pill <%=period===3650?'active':''%>">الكل</a>
+  </div>
 </div>
 
-<div class="bg-white rounded p-3 shadow-sm">
-  <h6>الإنتاج اليومي (آخر 14 يوم فيها تنفيذ)</h6>
-  <table class="table table-sm">
-    <thead><tr><th>التاريخ</th><th>عدد الطلبات المنفذة</th></tr></thead>
-    <tbody>
-    <% daily.forEach(function(d){ %>
-      <tr><td><%= d[0] %></td><td><%= d[1] %></td></tr>
-    <% }) %>
-    <% if (!daily.length) { %><tr><td colspan="2" class="text-center text-muted">لا توجد بيانات بعد</td></tr><% } %>
-    </tbody>
-  </table>
+<!-- ── Primary KPI cards ── -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.productionEfficiency>=70?'k-green':kpi.productionEfficiency>=40?'k-gold':'k-red'%>">
+      <div class="kpi-num <%=kpi.productionEfficiency>=70?'pct-good':kpi.productionEfficiency>=40?'pct-warn':'pct-bad'%>"><%= kpi.productionEfficiency %>%</div>
+      <div class="kpi-lbl">كفاءة الإنتاج</div>
+      <div class="kpi-sub"><%= counts.completed %> منجز من <%= counts.total - counts.cancelled %></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.onTimeRate>=80?'k-green':kpi.onTimeRate>=50?'k-gold':'k-red'%>">
+      <div class="kpi-num <%=kpi.onTimeRate>=80?'pct-good':kpi.onTimeRate>=50?'pct-warn':'pct-bad'%>"><%= kpi.onTimeRate %>%</div>
+      <div class="kpi-lbl">الإنجاز في الموعد</div>
+      <div class="kpi-sub"><%= DELAY_DAYS_THRESHOLD %> أيام كحد أقصى</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.delayRate===0?'k-green':kpi.delayRate<=20?'k-orange':'k-red'%>">
+      <div class="kpi-num <%=kpi.delayRate===0?'pct-good':kpi.delayRate<=20?'pct-warn':'pct-bad'%>"><%= kpi.delayRate %>%</div>
+      <div class="kpi-lbl">نسبة التأخر</div>
+      <div class="kpi-sub"><%= counts.late %> طلب متأخر من <%= counts.active %> نشط</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.errorRate===0?'k-green':kpi.errorRate<=5?'k-orange':'k-red'%>">
+      <div class="kpi-num <%=kpi.errorRate===0?'pct-good':kpi.errorRate<=5?'pct-warn':'pct-bad'%>"><%= kpi.errorRate %>%</div>
+      <div class="kpi-lbl">نسبة أخطاء التطريز</div>
+      <div class="kpi-sub"><%= totalEmbErrors %> خطأ من <%= totalEmbReceived %> قطعة</div>
+    </div>
+  </div>
 </div>
+
+<!-- ── Secondary count row ── -->
+<div class="row g-2 mb-4">
+  <div class="col-4 col-md-2">
+    <div class="count-pill">
+      <div class="cp-num"><%= counts.total %></div>
+      <div class="cp-lbl">إجمالي الطلبات</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="count-pill">
+      <div class="cp-num text-primary"><%= counts.active %></div>
+      <div class="cp-lbl">قيد الإنتاج</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="count-pill">
+      <div class="cp-num" style="color:var(--green)"><%= counts.completed %></div>
+      <div class="cp-lbl">منجزة</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="count-pill">
+      <div class="cp-num" style="color:var(--red)"><%= counts.late %></div>
+      <div class="cp-lbl">متأخرة</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="count-pill">
+      <div class="cp-num" style="color:var(--teal)"><%= counts.doneToday %></div>
+      <div class="cp-lbl">أنجز اليوم</div>
+    </div>
+  </div>
+  <div class="col-4 col-md-2">
+    <div class="count-pill">
+      <div class="cp-num" style="color:var(--gold)"><%= counts.doneThisMonth %></div>
+      <div class="cp-lbl">هذا الشهر</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab navigation ── -->
+<div class="rpt-tabs">
+  <a href="/reports?tab=overview&period=<%=period%>"    class="rpt-tab <%=tab==='overview'?'active':''%>">📊 نظرة عامة</a>
+  <a href="/reports?tab=production&period=<%=period%>"  class="rpt-tab <%=tab==='production'?'active':''%>">⚙️ الإنتاج</a>
+  <a href="/reports?tab=packaging&period=<%=period%>"   class="rpt-tab <%=tab==='packaging'?'active':''%>">📦 التغليف والشحن</a>
+  <a href="/reports?tab=inventory&period=<%=period%>"   class="rpt-tab <%=tab==='inventory'?'active':''%>">🏭 المخزون</a>
+  <a href="/reports?tab=activity&period=<%=period%>"    class="rpt-tab <%=tab==='activity'?'active':''%>">📋 سجل النشاط</a>
+</div>
+
+<%# ═══════════════ TAB: OVERVIEW ═══════════════ %>
+<% if (tab === 'overview') { %>
+
+<div class="row g-3">
+  <!-- Status funnel -->
+  <div class="col-12 col-lg-7">
+    <div class="rpt-panel">
+      <div class="rpt-panel-hd">📊 توزيع الطلبات حسب الحالة</div>
+      <div class="rpt-panel-body">
+        <% ORDER_STATUSES.forEach(function(s) { %>
+        <% var cnt = statusCounts[s] || 0; %>
+        <% var pct = Math.round((cnt / maxStatusCount) * 100); %>
+        <% if (cnt > 0 || true) { %>
+        <div class="funnel-row">
+          <div class="funnel-lbl">
+            <span class="badge bg-<%=STATUS_COLORS[s]||'secondary'%>" style="font-size:.72rem"><%= s %></span>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar-fill" style="width:<%=pct%>%;background:<%=cnt===0?'#e5e7eb':''%>"></div>
+          </div>
+          <div class="funnel-count"><%= cnt %></div>
+        </div>
+        <% } %>
+        <% }); %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily completion trend -->
+  <div class="col-12 col-lg-5">
+    <div class="rpt-panel">
+      <div class="rpt-panel-hd">📅 معدل الإنجاز اليومي</div>
+      <div class="rpt-panel-body">
+        <% if (daily.length === 0) { %>
+        <p class="text-muted text-center py-3" style="font-size:.85rem">لا توجد طلبات منجزة بعد</p>
+        <% } else { %>
+        <% daily.forEach(function(d) { %>
+        <% var bw = Math.round((d[1]/maxDailyCount)*100); %>
+        <div class="daily-row">
+          <div class="daily-day"><%= d[0] %></div>
+          <div class="daily-bar-wrap">
+            <div class="daily-bar-fill" style="width:<%=bw%>%"></div>
+          </div>
+          <div class="daily-cnt"><%= d[1] %></div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Production pipeline (items by stage) -->
+<div class="rpt-panel">
+  <div class="rpt-panel-hd">🔄 خط الإنتاج — القطع حسب المرحلة</div>
+  <div class="rpt-panel-body">
+    <div class="stage-pipeline">
+      <% ITEM_STAGES_ALL.forEach(function(s) { %>
+      <% var cnt = stageCounts[s] || 0; %>
+      <% var pct = Math.round((cnt / totalItemsInPipeline) * 100); %>
+      <div class="stage-step <%=cnt>0?'has-items':''%>">
+        <div class="stage-bubble"><%= cnt %></div>
+        <div class="stage-lbl"><%= s %></div>
+        <div class="stage-pct"><%=pct%>%</div>
+      </div>
+      <% }); %>
+    </div>
+    <div class="text-muted mt-2" style="font-size:.75rem">إجمالي القطع في النظام: <strong><%= totalItemsInPipeline %></strong></div>
+  </div>
+</div>
+
+<!-- Additional KPIs secondary row -->
+<div class="row g-3">
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-teal">
+      <div class="kpi-num" style="color:var(--teal)"><%= kpi.wsEfficiency %>%</div>
+      <div class="kpi-lbl">كفاءة المشاغل</div>
+      <div class="kpi-sub"><%= wsReceived %> مستلم / <%= wsDelivered %> مُسلَّم</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.pkgRate>=80?'k-green':'k-gold'%>">
+      <div class="kpi-num <%=kpi.pkgRate>=80?'pct-good':'pct-warn'%>"><%= kpi.pkgRate %>%</div>
+      <div class="kpi-lbl">نسبة إتمام التغليف</div>
+      <div class="kpi-sub"><%= pkgDone %> تم من <%= packages.length %></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.shpRate>=80?'k-green':kpi.shpRate>=50?'k-gold':'k-orange'%>">
+      <div class="kpi-num <%=kpi.shpRate>=80?'pct-good':kpi.shpRate>=50?'pct-warn':'pct-bad'%>"><%= kpi.shpRate %>%</div>
+      <div class="kpi-lbl">نسبة التسليم الناجح</div>
+      <div class="kpi-sub"><%= shpDelivered %> تم تسليمه من <%= shipments.length %></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-purple">
+      <div class="kpi-num" style="color:var(--purple)"><%= scansTotal %></div>
+      <div class="kpi-lbl">مسح الباركود الكلي</div>
+      <div class="kpi-sub"><%= scansToday %> مسح اليوم</div>
+    </div>
+  </div>
+</div>
+
+<% } %>
+
+<%# ═══════════════ TAB: PRODUCTION ═══════════════ %>
+<% if (tab === 'production') { %>
+
+<!-- Workshop performance -->
+<div class="rpt-panel">
+  <div class="rpt-panel-hd">🏭 أداء المشاغل</div>
+  <div class="rpt-panel-body">
+    <% if (byWorkshop.length === 0) { %>
+    <p class="text-muted text-center py-3">لا توجد مشاغل مسجلة</p>
+    <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle" style="font-size:.85rem">
+        <thead><tr style="font-size:.75rem;color:#888">
+          <th>المشغل</th>
+          <th class="text-center">الوظائف</th>
+          <th class="text-center">مُسلَّم</th>
+          <th class="text-center">مُستلم</th>
+          <th class="text-center">معلق</th>
+          <th class="text-center">متوسط الأيام</th>
+          <th style="min-width:120px">الكفاءة</th>
+        </tr></thead>
+        <tbody>
+        <% byWorkshop.forEach(function(w) { %>
+        <tr>
+          <td><strong><%= w.name %></strong></td>
+          <td class="text-center"><%= w.totalJobs %></td>
+          <td class="text-center"><%= w.delivered %></td>
+          <td class="text-center"><%= w.received %></td>
+          <td class="text-center">
+            <% if (w.pending > 0) { %><span class="badge bg-warning text-dark"><%= w.pending %></span><% } else { %><span class="text-muted">—</span><% } %>
+          </td>
+          <td class="text-center"><%= w.avgDays %></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="ws-bar-wrap" style="flex:1"><div class="ws-bar-fill" style="width:<%=w.efficiency%>%"></div></div>
+              <span style="font-size:.78rem;font-weight:700;color:<%=w.efficiency>=80?'var(--green)':w.efficiency>=50?'var(--orange)':'var(--red)'%>"><%=w.efficiency%>%</span>
+            </div>
+          </td>
+        </tr>
+        <% }); %>
+        </tbody>
+        <tfoot><tr style="background:#f8fafc;font-weight:700;font-size:.78rem">
+          <td>الإجمالي</td>
+          <td></td>
+          <td class="text-center"><%= wsDelivered %></td>
+          <td class="text-center"><%= wsReceived %></td>
+          <td></td><td></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="ws-bar-wrap" style="flex:1"><div class="ws-bar-fill" style="width:<%=kpi.wsEfficiency%>%"></div></div>
+              <span style="font-size:.78rem;font-weight:700;color:<%=kpi.wsEfficiency>=80?'var(--green)':kpi.wsEfficiency>=50?'var(--orange)':'var(--red)'%>"><%=kpi.wsEfficiency%>%</span>
+            </div>
+          </td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Embroidery performance -->
+<div class="rpt-panel">
+  <div class="rpt-panel-hd">🧵 أداء المطرزين</div>
+  <div class="rpt-panel-body">
+    <% var hasEmb = byEmbroiderer.some(function(e){return e.jobs>0;}); %>
+    <% if (!hasEmb) { %>
+    <p class="text-muted text-center py-3">لا توجد وظائف تطريز بعد</p>
+    <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle" style="font-size:.85rem">
+        <thead><tr style="font-size:.75rem;color:#888">
+          <th>المطرز</th>
+          <th class="text-center">الوظائف</th>
+          <th class="text-center">مُستلم</th>
+          <th class="text-center">منجز</th>
+          <th class="text-center">أخطاء</th>
+          <th class="text-center">نسبة الخطأ</th>
+        </tr></thead>
+        <tbody>
+        <% byEmbroiderer.forEach(function(e) { %>
+        <% if (e.jobs > 0) { %>
+        <tr>
+          <td><strong><%= e.name %></strong></td>
+          <td class="text-center"><%= e.jobs %></td>
+          <td class="text-center"><%= e.received %></td>
+          <td class="text-center"><%= e.done %></td>
+          <td class="text-center">
+            <% if (e.errors > 0) { %><span class="badge bg-danger"><%= e.errors %></span><% } else { %><span class="text-muted">—</span><% } %>
+          </td>
+          <td class="text-center">
+            <span style="color:<%=e.errPct===0?'var(--green)':e.errPct<=5?'var(--orange)':'var(--red)'%>;font-weight:700"><%= e.errPct %>%</span>
+          </td>
+        </tr>
+        <% } %>
+        <% }); %>
+        </tbody>
+        <tfoot><tr style="background:#f8fafc;font-weight:700;font-size:.78rem">
+          <td colspan="3">الإجمالي</td>
+          <td></td>
+          <td class="text-center"><%= totalEmbErrors %></td>
+          <td class="text-center">
+            <span style="font-weight:700;color:<%=kpi.errorRate===0?'var(--green)':kpi.errorRate<=5?'var(--orange)':'var(--red)'%>"><%= kpi.errorRate %>%</span>
+          </td>
+        </tr></tfoot>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Barcode scan activity -->
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="rpt-panel h-100">
+      <div class="rpt-panel-hd">🔬 نشاط مسح الباركود</div>
+      <div class="rpt-panel-body">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <div class="count-pill">
+              <div class="cp-num"><%= scansTotal %></div>
+              <div class="cp-lbl">إجمالي المسح</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="count-pill">
+              <div class="cp-num" style="color:var(--teal)"><%= scansToday %></div>
+              <div class="cp-lbl">مسح اليوم</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="count-pill">
+              <div class="cp-num" style="color:var(--orange)"><%= scansOut %></div>
+              <div class="cp-lbl">خروج للمشغل</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="count-pill">
+              <div class="cp-num" style="color:var(--green)"><%= scansIn %></div>
+              <div class="cp-lbl">استلام من المشغل</div>
+            </div>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="rpt-panel-hd" style="padding:0 0 8px;border:0;font-size:.8rem">المسح اليومي (آخر 7 أيام)</div>
+          <% if (scanDailyArr.length === 0) { %>
+          <p class="text-muted" style="font-size:.82rem">لا يوجد نشاط مسح بعد</p>
+          <% } else { %>
+          <% var maxScan = Math.max.apply(null, scanDailyArr.map(function(d){return d[1];})); maxScan = maxScan||1; %>
+          <% scanDailyArr.forEach(function(d) { %>
+          <div class="daily-row">
+            <div class="daily-day"><%= d[0] %></div>
+            <div class="daily-bar-wrap"><div class="daily-bar-fill" style="width:<%=Math.round(d[1]/maxScan*100)%>%;background:linear-gradient(90deg,var(--purple),var(--navy))"></div></div>
+            <div class="daily-cnt"><%= d[1] %></div>
+          </div>
+          <% }); %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status change history -->
+  <div class="col-12 col-lg-7">
+    <div class="rpt-panel h-100">
+      <div class="rpt-panel-hd">🔁 سجل تغييرات الحالة</div>
+      <div class="rpt-panel-body" style="max-height:340px;overflow-y:auto">
+        <% if (statusChangeLog.length === 0) { %>
+        <p class="text-muted text-center py-3" style="font-size:.85rem">لا توجد تغييرات مسجلة</p>
+        <% } else { %>
+        <% statusChangeLog.forEach(function(l) { %>
+        <div class="act-row">
+          <div class="act-icon">🔁</div>
+          <div class="act-body">
+            <div class="act-action"><%= l.details || l.action %></div>
+            <div class="act-meta"><%= l.user_name %> · <%= l.at ? l.at.slice(0,16).replace('T',' ') : '' %></div>
+          </div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<% } %>
+
+<%# ═══════════════ TAB: PACKAGING & SHIPPING ═══════════════ %>
+<% if (tab === 'packaging') { %>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-teal">
+      <div class="kpi-num" style="color:var(--teal)"><%= packages.length %></div>
+      <div class="kpi-lbl">إجمالي التغليف</div>
+      <div class="kpi-sub"><%= pkgDone %> مكتمل</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-green">
+      <div class="kpi-num pct-good"><%= kpi.pkgRate %>%</div>
+      <div class="kpi-lbl">نسبة الإتمام</div>
+      <div class="kpi-sub">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-gold">
+      <div class="kpi-num" style="color:var(--gold)"><%= totalPieces %></div>
+      <div class="kpi-lbl">قطع مُغلَّفة</div>
+      <div class="kpi-sub">إجمالي القطع</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi">
+      <div class="kpi-num"><%= avgPkgMins %></div>
+      <div class="kpi-lbl">متوسط وقت التغليف</div>
+      <div class="kpi-sub">دقيقة</div>
+    </div>
+  </div>
+</div>
+
+<!-- Packages table -->
+<div class="rpt-panel">
+  <div class="rpt-panel-hd">📦 سجل التغليف</div>
+  <div class="rpt-panel-body">
+    <% if (packages.length === 0) { %>
+    <p class="text-muted text-center py-3">لا توجد بيانات تغليف بعد</p>
+    <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle" style="font-size:.84rem">
+        <thead><tr style="font-size:.74rem;color:#888">
+          <th>رقم الطلب</th>
+          <th class="text-center">الحالة</th>
+          <th class="text-center">القطع</th>
+          <th>بدأ</th>
+          <th>انتهى</th>
+        </tr></thead>
+        <tbody>
+        <% packages.forEach(function(p) { %>
+        <tr>
+          <td><a href="/packaging/order/<%= p.order_id %>" style="font-weight:700;color:var(--navy);text-decoration:none"><%= p.order_number %></a></td>
+          <td class="text-center">
+            <span class="badge bg-<%=p.status==='تم التغليف'?'teal':p.status==='في التغليف'?'info':'secondary'%>"><%= p.status %></span>
+          </td>
+          <td class="text-center"><%= p.pieces_count || '—' %></td>
+          <td style="font-size:.75rem;color:#888"><%= p.started_at ? p.started_at.slice(0,16).replace('T',' ') : '—' %></td>
+          <td style="font-size:.75rem;color:#888"><%= p.completed_at ? p.completed_at.slice(0,16).replace('T',' ') : '—' %></td>
+        </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Shipping stats -->
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-green">
+      <div class="kpi-num pct-good"><%= shipments.length %></div>
+      <div class="kpi-lbl">إجمالي الشحنات</div>
+      <div class="kpi-sub">جميع الفترات</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=kpi.shpRate>=80?'k-green':'k-gold'%>">
+      <div class="kpi-num <%=kpi.shpRate>=80?'pct-good':'pct-warn'%>"><%= kpi.shpRate %>%</div>
+      <div class="kpi-lbl">نسبة التسليم الناجح</div>
+      <div class="kpi-sub"><%= shpDelivered %> من <%= shipments.length %></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi <%=shpFailed>0?'k-red':'k-green'%>">
+      <div class="kpi-num <%=shpFailed>0?'pct-bad':'pct-good'%>"><%= shpFailed %></div>
+      <div class="kpi-lbl">فشل التسليم</div>
+      <div class="kpi-sub">—</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi">
+      <div class="kpi-num"><%= shipments.length - shpDelivered - shpFailed %></div>
+      <div class="kpi-lbl">قيد الشحن</div>
+      <div class="kpi-sub">في الطريق</div>
+    </div>
+  </div>
+</div>
+
+<!-- By company -->
+<div class="rpt-panel">
+  <div class="rpt-panel-hd">🚚 الشحنات حسب شركة الشحن</div>
+  <div class="rpt-panel-body">
+    <% if (byCompanyArr.length === 0) { %>
+    <p class="text-muted text-center py-3">لا توجد شحنات بعد</p>
+    <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle" style="font-size:.85rem">
+        <thead><tr style="font-size:.75rem;color:#888">
+          <th>الشركة</th>
+          <th class="text-center">الكل</th>
+          <th class="text-center">مُسلَّم</th>
+          <th class="text-center">فشل</th>
+          <th style="min-width:120px">نسبة النجاح</th>
+        </tr></thead>
+        <tbody>
+        <% byCompanyArr.forEach(function(co) { %>
+        <tr>
+          <td><strong><%= co.name %></strong></td>
+          <td class="text-center"><%= co.count %></td>
+          <td class="text-center"><span class="badge bg-success"><%= co.delivered %></span></td>
+          <td class="text-center"><% if (co.failed > 0) { %><span class="badge bg-danger"><%= co.failed %></span><% } else { %><span class="text-muted">—</span><% } %></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="ws-bar-wrap" style="flex:1"><div class="ws-bar-fill" style="width:<%=co.rate%>%"></div></div>
+              <span style="font-size:.78rem;font-weight:700;color:<%=co.rate>=80?'var(--green)':co.rate>=50?'var(--orange)':'var(--red)'%>"><%=co.rate%>%</span>
+            </div>
+          </td>
+        </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<!-- Shipments table -->
+<div class="rpt-panel">
+  <div class="rpt-panel-hd">📋 سجل الشحنات</div>
+  <div class="rpt-panel-body">
+    <% if (shipments.length === 0) { %>
+    <p class="text-muted text-center py-3">لا توجد شحنات بعد</p>
+    <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle" style="font-size:.84rem">
+        <thead><tr style="font-size:.74rem;color:#888">
+          <th>رقم الطلب</th>
+          <th>شركة الشحن</th>
+          <th>رقم التتبع</th>
+          <th class="text-center">الحالة</th>
+          <th>تاريخ الشحن</th>
+        </tr></thead>
+        <tbody>
+        <% shipments.forEach(function(s) { %>
+        <tr>
+          <td><a href="/packaging/order/<%= s.order_id %>" style="font-weight:700;color:var(--navy);text-decoration:none"><%= s.order_number %></a></td>
+          <td><%= s.shipping_company || '—' %></td>
+          <td style="font-family:monospace;font-size:.8rem"><%= s.tracking_number || '—' %></td>
+          <td class="text-center">
+            <span class="badge bg-<%=s.status==='تم التسليم'?'success':s.status==='فشل التسليم'?'danger':s.status==='جاهز للشحن'?'warning':s.status==='تم الشحن'?'info':'secondary'%>">
+              <%= s.status %>
+            </span>
+          </td>
+          <td style="font-size:.75rem;color:#888"><%= s.shipped_at ? s.shipped_at.slice(0,10) : '—' %></td>
+        </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<% } %>
+
+<%# ═══════════════ TAB: INVENTORY ═══════════════ %>
+<% if (tab === 'inventory') { %>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-navy">
+      <div class="kpi-num"><%= totalInventoryItems %></div>
+      <div class="kpi-lbl">إجمالي الأصناف</div>
+      <div class="kpi-sub">في المخزون</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-orange">
+      <div class="kpi-num" style="color:var(--orange)"><%= movTypeBreakdown['استلام'] %></div>
+      <div class="kpi-lbl">عمليات استلام</div>
+      <div class="kpi-sub">إجمالي الحركات</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-red">
+      <div class="kpi-num pct-bad"><%= movTypeBreakdown['صرف'] %></div>
+      <div class="kpi-lbl">عمليات صرف للإنتاج</div>
+      <div class="kpi-sub">إجمالي الحركات</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="rpt-kpi k-teal">
+      <div class="kpi-num" style="color:var(--teal)"><%= invMovements.length %></div>
+      <div class="kpi-lbl">إجمالي الحركات</div>
+      <div class="kpi-sub">جميع الأنواع</div>
+    </div>
+  </div>
+</div>
+
+<!-- Movement type breakdown -->
+<div class="row g-3">
+  <div class="col-12 col-lg-5">
+    <div class="rpt-panel h-100">
+      <div class="rpt-panel-hd">📊 توزيع الحركات</div>
+      <div class="rpt-panel-body">
+        <% var movColors = {'استلام':'recv','صرف':'issue','إرجاع':'ret','تسوية':'adj','جرد':'adj'}; %>
+        <% var maxMov = Math.max.apply(null, Object.values(movTypeBreakdown).concat([1])); %>
+        <% Object.entries(movTypeBreakdown).forEach(function(entry) { %>
+        <% var mtype = entry[0]; var mcnt = entry[1]; %>
+        <div class="funnel-row">
+          <div class="funnel-lbl" style="min-width:80px"><span class="mov-type mov-<%=movColors[mtype]||'adj'%>"><%= mtype %></span></div>
+          <div class="funnel-bar-wrap"><div class="funnel-bar-fill" style="width:<%=Math.round(mcnt/maxMov*100)%>%"></div></div>
+          <div class="funnel-count"><%= mcnt %></div>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top issued items -->
+  <div class="col-12 col-lg-7">
+    <div class="rpt-panel h-100">
+      <div class="rpt-panel-hd">🔝 أكثر المواد صرفاً للإنتاج</div>
+      <div class="rpt-panel-body">
+        <% if (topIssuedItems.length === 0) { %>
+        <p class="text-muted text-center py-3" style="font-size:.85rem">لا توجد عمليات صرف بعد</p>
+        <% } else { %>
+        <% var maxItemQty = Math.max.apply(null, topIssuedItems.map(function(i){return i.qty;})); maxItemQty = maxItemQty||1; %>
+        <% topIssuedItems.forEach(function(item) { %>
+        <div class="funnel-row mb-1">
+          <div class="funnel-lbl" style="min-width:130px;font-size:.8rem"><%= item.name %></div>
+          <div class="funnel-bar-wrap"><div class="funnel-bar-fill" style="width:<%=Math.round(item.qty/maxItemQty*100)%>%;background:linear-gradient(90deg,var(--red),var(--orange))"></div></div>
+          <div class="funnel-count" style="min-width:50px"><%= item.qty.toFixed(1) %> <small style="color:#aaa">(<%= item.txns %>)</small></div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Usage by order -->
+<div class="rpt-panel mt-3">
+  <div class="rpt-panel-hd">📋 استهلاك المواد حسب الطلب</div>
+  <div class="rpt-panel-body">
+    <% if (usageByOrderArr.length === 0) { %>
+    <p class="text-muted text-center py-3">لا توجد مواد مصروفة لطلبات بعد</p>
+    <% } else { %>
+    <% usageByOrderArr.forEach(function(order) { %>
+    <div class="mb-3">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <a href="/orders/<%=order.order_id%>" style="font-weight:800;color:var(--navy);font-family:monospace"><%= order.order_number %></a>
+        <span class="badge bg-secondary" style="font-size:.7rem"><%= order.items.length %> مادة</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm" style="font-size:.8rem">
+          <thead><tr style="font-size:.72rem;color:#888"><th>المادة</th><th class="text-center">الكمية</th><th>ملاحظات</th></tr></thead>
+          <tbody>
+          <% order.items.forEach(function(m) { %>
+          <tr>
+            <td><%= m.item_name %></td>
+            <td class="text-center"><span class="pct-bad" style="font-weight:700"><%= Math.abs(m.qty) %></span></td>
+            <td style="color:#888"><%= m.notes || '—' %></td>
+          </tr>
+          <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<% } %>
+
+<%# ═══════════════ TAB: ACTIVITY LOG ═══════════════ %>
+<% if (tab === 'activity') { %>
+
+<div class="row g-3">
+  <!-- Top actions summary -->
+  <div class="col-12 col-lg-4">
+    <div class="rpt-panel h-100">
+      <div class="rpt-panel-hd">📊 أكثر العمليات تكراراً</div>
+      <div class="rpt-panel-body">
+        <% if (topActions.length === 0) { %>
+        <p class="text-muted text-center py-3">لا توجد سجلات</p>
+        <% } else { %>
+        <% var maxAct = topActions[0][1]; maxAct = maxAct||1; %>
+        <% topActions.forEach(function(a) { %>
+        <div class="funnel-row mb-1">
+          <div class="funnel-lbl" style="min-width:110px;font-size:.77rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><%= a[0] %></div>
+          <div class="funnel-bar-wrap"><div class="funnel-bar-fill" style="width:<%=Math.round(a[1]/maxAct*100)%>%;background:linear-gradient(90deg,var(--purple),var(--navy))"></div></div>
+          <div class="funnel-count"><%= a[1] %></div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity feed -->
+  <div class="col-12 col-lg-8">
+    <div class="rpt-panel h-100">
+      <div class="rpt-panel-hd">📋 آخر ٥٠ عملية في النظام</div>
+      <div class="rpt-panel-body" style="max-height:600px;overflow-y:auto">
+        <% if (recentActivity.length === 0) { %>
+        <p class="text-muted text-center py-3">لا توجد سجلات</p>
+        <% } else { %>
+        <% var actIcons = {
+          'إنشاء طلب':'🆕','تغيير حالة طلب':'🔁','تعيين مشغل':'🏭',
+          'مسح باركود - out_workshop':'📤','مسح باركود - in_workshop':'📥',
+          'بدء التغليف':'📦','إتمام التغليف':'✅','إنشاء شحنة':'🚚',
+          'استلام مواد':'⬇️','صرف مواد للإنتاج':'⬆️','جرد مخزون':'📊',
+          'إضافة صنف مخزون':'➕','تسوية مخزون':'⚖️','إرجاع مواد':'↩️'
+        }; %>
+        <% recentActivity.forEach(function(l) { %>
+        <div class="act-row">
+          <div class="act-icon"><%= actIcons[l.action] || '📌' %></div>
+          <div class="act-body">
+            <div class="act-action"><%= l.action %></div>
+            <% if (l.details) { %><div class="act-detail"><%= l.details %></div><% } %>
+            <div class="act-meta"><%= l.user_name %> · <%= l.at ? l.at.slice(0,16).replace('T',' ') : '' %></div>
+          </div>
+        </div>
+        <% }); %>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<% } %>
+
 <%- include('partials/foot') %>
