@@ -39,7 +39,7 @@
     <a class="nav-link <%= path.startsWith('/barcode')?'active':'' %>" href="/barcode">📷 مسح الباركود</a>
     <a class="nav-link <%= path.startsWith('/products')?'active':'' %>" href="/products">👗 المنتجات</a>
     <a class="nav-link <%= path.startsWith('/workshops')?'active':'' %>" href="/workshops">🏭 المشاغل</a>
-    <a class="nav-link <%= path.startsWith('/embroiderers')?'active':'' %>" href="/embroiderers">🧵 المطرزين</a>
+    <a class="nav-link <%= path.startsWith('/embroiderers')?'active':'' %>" href="/embroiderers">🧵 المطرزين<% if (unassignedEmbroideryCount > 0) { %> <span class="badge bg-danger rounded-pill ms-1" style="font-size:.7rem"><%= unassignedEmbroideryCount %></span><% } %></a>
     <a class="nav-link <%= path.startsWith('/accounts')?'active':'' %>" href="/accounts">💰 الحسابات</a>
     <a class="nav-link <%= path.startsWith('/reports')?'active':'' %>" href="/reports">📈 التقارير</a>
     <% if (user.role === 'admin') { %>

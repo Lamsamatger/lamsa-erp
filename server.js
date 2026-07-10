@@ -77,6 +77,16 @@ app.use((req, res, next) => {
   const secSettings = getCachedSecuritySettings();
   const sysHide = secSettings.hideCustomerFromProduction !== false;
   res.locals.hideCustomer = perms.hideCustomer === true && sysHide;
+  // Unassigned embroidery jobs badge count (only for authenticated users)
+  if (req.session.user) {
+    try {
+      const _db = load();
+      res.locals.unassignedEmbroideryCount = (_db.embroidery_jobs || [])
+        .filter(j => !j.embroiderer_id).length;
+    } catch (e) { res.locals.unassignedEmbroideryCount = 0; }
+  } else {
+    res.locals.unassignedEmbroideryCount = 0;
+  }
   next();
 });
 
